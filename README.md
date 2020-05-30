@@ -4,7 +4,6 @@
 [![Build Status](https://travis-ci.org/jodafons/saphyra.svg?branch=master)](https://travis-ci.org/github/jodafons/saphyra)
 [![PyPI Version](https://img.shields.io/pypi/v/saphyra)](https://pypi.org/project/saphyra/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/saphyra)](https://github.com/jodafons/saphyra)
-[![License](https://img.shields.io/github/license/jodafons/saphyra)](https://github.com/jodafons/saphyra)
 
 
 
