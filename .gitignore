@@ -14,7 +14,7 @@ doc/.ipynb_checkpoints/*
 *.pdf
 *.tex
 *.C
-
+saphyra.egg-info/
 *.bak
 Gaugi
 

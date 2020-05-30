@@ -16,11 +16,14 @@ setuptools.setup(
   url = 'https://github.com/jodafons/saphyra',
   keywords = ['framework', 'flexibility', 'python', 'online', 'machine learning', 'deep learning'],
   install_requires=[
+          'tensorflow',
+          'keras',
           'numpy',
           'six',
           'scipy',
+          'future',
           'sklearn',
-          'future'
+          'Gaugi',
       ],
   classifiers=[
     'Development Status :: 4 - Beta',
@@ -28,10 +31,7 @@ setuptools.setup(
     'Topic :: Software Development :: Libraries :: Python Modules',
     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.4',
-    'Programming Language :: Python :: 3.5',
     'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
-    'Programming Language :: Python :: 3.8',
   ],
 )
