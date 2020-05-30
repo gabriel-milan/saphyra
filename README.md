@@ -19,10 +19,10 @@ TensorFlow as core to call the machine learning training functions.
 - numpy;
 - python;
 - Gaugi;
-- sklearn
+- sklearn;
 
 
-## Installation Using pip:
+## Installation using pip:
 
 
 ```bash
@@ -30,6 +30,19 @@ pip3 install --upgrade saphyra
 ```
 **NOTE**: Make sure that you are using the latest package in case you have the saphyra installed. 
 
+## Installing from source:
+
+* Clone this repository:
+
+```bash
+git clone https://github.com/jodafons/saphyra
+```
+
+* Install it!
+
+```bash
+cd saphyra && easy_install --user .
+```
 
 ## Docker:
 
@@ -40,8 +53,6 @@ docker run --network host -v $PWD:$HOME -it jodafons/saphyra:base
 
 ## Contribution:
 
-- Dr. João Victor da Fonseca Pinto, UFRJ/COPPE, CERN/ATLAS (jodafons@lps.ch) [maintainer, developer]
-- Dr. Werner Freund, UFRJ/COPPE, CERN/ATLAS (wsfreund@lps.ch) [developer]
-- Msc. Micael Veríssimo de Araújo, UFRJ/COPPE, CERN/ATLAS (mverissi@lps.ch) [developer]
-
-
+- Dr. João Victor da Fonseca Pinto, UFRJ/COPPE, CERN/ATLAS (jodafons@lps.ufrj.br) [maintainer, developer]
+- Dr. Werner Freund, UFRJ/COPPE, CERN/ATLAS (wsfreund@lps.ufrj.br) [developer]
+- Msc. Micael Veríssimo de Araújo, UFRJ/COPPE, CERN/ATLAS (mverissi@lps.ufrj.br) [developer]

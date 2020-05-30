@@ -7,12 +7,11 @@ python:
   - "3.8"
 
 before_install:
-  - source scripts/setup_module.sh
-  - source scripts/setup.sh
+  - sudo apt-get install python3-setuptools
+  - sudo apt-get install python3-pip python3-dev build-essential
 
 install:
-  - pip3 install --upgrade pip
-  - pip3 install -r requirements.txt
+  - easy_install --user .
 
 script:
   - python3 ci/main.py
