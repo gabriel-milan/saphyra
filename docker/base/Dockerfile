@@ -5,13 +5,13 @@ SHELL [ "/bin/bash", "-c" ]
 RUN apt-get update
 RUN apt-get install -y git
 
-#RUN pip install --upgrade pip
+RUN pip install --upgrade pip
 RUN pip3 install sklearn keras sqlalchemy numpy kubernetes psycopg2-binary benedict flask-login 
 RUN pip3 install gaugi saphyra
 
 
-ENTRYPOINT ["entrypoint.sh"]
-
+COPY setup_envs.sh /setup_envs.sh
+RUN chmod 774 /setup_envs.sh
 
 
 

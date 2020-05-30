@@ -1,4 +1,4 @@
-# Base Docker image
+# Ringer Project  Docker image
 
 * Build script: `./build.sh`
 * Run script: `./run.sh`
