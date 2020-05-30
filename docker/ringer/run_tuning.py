@@ -50,7 +50,7 @@ commands = open('/commands.sh', 'w')
 # Update all pip packages
 commands.write('. /update.sh\n')
 # Download the ringer tuning repository
-commands.write("cd / && git clone https://github.com/jodafons/ringertunings.git && cd /ringertunings && git checkout %s && cd versions/%s\n"%(args.branch,args.tag))
+commands.write("cd / && git clone https://github.com/jodafons/ringer.git && cd /ringer && git checkout %s && cd versions/%s\n"%(args.branch,args.tag))
 commands.write("python job_tuning.py -d %s -o %s -c %s -r %s\n"%(args.dataFile, args.outputFile, args.configFile, args.refFile) )
 commands.close()
 
