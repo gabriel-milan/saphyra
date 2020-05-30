@@ -1,6 +1,6 @@
 # Example CI script
 
-def test():
+def test_import():
     print ("Import test...", end='')
     try:
         import saphyra

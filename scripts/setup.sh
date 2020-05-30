@@ -1,0 +1,10 @@
+
+
+export PYTHONPATH=`pwd`/saphyra
+
+
+
+
+
+
+

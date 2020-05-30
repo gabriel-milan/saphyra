@@ -6,7 +6,7 @@ __all__ = ['Job_v1']
 from sklearn.model_selection import *
 from Gaugi import LoggerStreamable, LoggerRawDictStreamer, RawDictCnv
 
-from saphyra.layers.RingerRp import RingerRp
+from saphyra.layers.RpLayer import RpLayer
 # Just to remove the keras dependence
 import tensorflow as tf
 model_from_json = tf.keras.models.model_from_json
@@ -73,7 +73,7 @@ class Job_v1( LoggerStreamable ):
     # Loop over all keras model
     models = []; id_models = []
     for d in self._models:
-      model = model_from_json( json.dumps(d['model'], separators=(',', ':')) , custom_objects={'RingerRp':RingerRp} )
+      model = model_from_json( json.dumps(d['model'], separators=(',', ':')) , custom_objects={'RpLayer':RingerRp} )
       model.set_weights( d['weights'] )
       models.append( model )
       id_models.append( d['id_model'] )

@@ -6,7 +6,8 @@ from saphyra import sp
 from sklearn.model_selection import train_test_split
 import numpy as np
 
-def test():
+def test_sp_callback():
+
     print(tf.__version__)
     x_train = np.array([
         [1, 3, 5],
