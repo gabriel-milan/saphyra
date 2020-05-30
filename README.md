@@ -7,8 +7,9 @@
 [![License](https://img.shields.io/github/license/jodafons/saphyra)](https://github.com/jodafons/saphyra)
 
 
-The machine learning package for the LPS High Energy Physics (HEP) project developments. This framework uses the 
-TensorFlow as core to call the machine learning training functions. 
+The machine learning package for the LPS High Energy Physics (HEP) projects. This framework uses the 
+TensorFlow as core to call the machine learning training functions. Please, check this example to 
+build your tuning job and launch.
 
 ## Disclaimer:
 
@@ -60,3 +61,4 @@ docker run --network host -v $PWD:$HOME -it jodafons/saphyra:base
 - Dr. João Victor da Fonseca Pinto, UFRJ/COPPE, CERN/ATLAS (jodafons@lps.ufrj.br) [maintainer, developer]
 - Dr. Werner Freund, UFRJ/COPPE, CERN/ATLAS (wsfreund@lps.ufrj.br) [developer]
 - Msc. Micael Veríssimo de Araújo, UFRJ/COPPE, CERN/ATLAS (mverissi@lps.ufrj.br) [developer]
+- Eng. Gabriel Milan Gazola, UFRJ/COPPE, CERN/ATLAS (gabriel.milan@lps.ufrj.br) [developer]

@@ -1,6 +1,7 @@
 
 
-export PYTHONPATH=`pwd`/saphyra
+echo "setup saphyra..."
+export PYTHONPATH=`pwd`:$PYTHONPATH
 
 
 

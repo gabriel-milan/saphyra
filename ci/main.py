@@ -11,4 +11,4 @@ if __name__ == '__main__':
     print (" ==> Import saphyra test")
     test_import()
     print (" ==> Training a basic model with SP callback")
-    test_sp_callback()
+    #test_sp_callback()
