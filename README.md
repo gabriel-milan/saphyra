@@ -10,7 +10,11 @@
 The machine learning package for the LPS High Energy Physics (HEP) project developments. This framework uses the 
 TensorFlow as core to call the machine learning training functions. 
 
+## Disclaimer:
 
+For `tensorflow` is, to this date, supported until Python 3.7 (read [here](https://github.com/tensorflow/tensorflow/issues/33374)) and
+latest version of `sklearn` requires Python 3.6 or later, currently Saphyra supports Python 3.6 and 3.7 only. Any other custom setup
+isn't guaranteed to work.
 
 ## Requirements:
 
