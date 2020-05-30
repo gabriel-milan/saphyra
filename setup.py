@@ -13,7 +13,7 @@ setuptools.setup(
   packages=setuptools.find_packages(),
   author = 'João Victor da Fonseca Pinto',
   author_email = 'jodafons@lps.ufrj.br',
-  url = 'https://github.com/jodafons/Gaugi',
+  url = 'https://github.com/jodafons/saphyra',
   keywords = ['framework', 'flexibility', 'python', 'online', 'machine learning', 'deep learning'],
   install_requires=[
           'numpy',
