@@ -16,11 +16,14 @@ setuptools.setup(
   url = 'https://github.com/jodafons/saphyra',
   keywords = ['framework', 'flexibility', 'python', 'online', 'machine learning', 'deep learning'],
   install_requires=[
+          'tensorflow',
+          'keras',
           'numpy',
           'six',
           'scipy',
+          'future',
           'sklearn',
-          'future'
+          'Gaugi',
       ],
   classifiers=[
     'Development Status :: 4 - Beta',
