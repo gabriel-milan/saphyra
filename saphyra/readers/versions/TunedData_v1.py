@@ -28,19 +28,6 @@ class TunedData_v1( LoggerStreamable ):
     self._jobid     = None
 
 
-  def setDBContext( self, context ):
-    self._username = context.username()
-    self._taskname = context.taskname()
-    self._jobid = context.jobid()
-
-  def getDBContext( self ):
-    try:
-      from ringerdb import DBContext
-      return DBContext( self._username, self._taskname, self._jobid)
-    except Exception as e:
-      MSG_WARNING(self,e)
-      return None
-
   def attach( self, id_model, sort, init, tag, model, history, metadata={} ):
 
     self._tunedData.append({'imodel'   : id_model,

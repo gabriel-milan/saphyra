@@ -73,7 +73,7 @@ class Job_v1( LoggerStreamable ):
     # Loop over all keras model
     models = []; id_models = []
     for d in self._models:
-      model = model_from_json( json.dumps(d['model'], separators=(',', ':')) , custom_objects={'RpLayer':RingerRp} )
+      model = model_from_json( json.dumps(d['model'], separators=(',', ':')) , custom_objects={'RpLayer':RpLayer} )
       model.set_weights( d['weights'] )
       models.append( model )
       id_models.append( d['id_model'] )
