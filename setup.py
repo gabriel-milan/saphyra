@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
   name = 'saphyra',
-  version = '2.0.3',
+  version = '2.0.4',
   license='GPL-3.0',
   description = '',
   long_description = long_description,
@@ -16,7 +16,7 @@ setuptools.setup(
   url = 'https://github.com/jodafons/saphyra',
   keywords = ['framework', 'flexibility', 'python', 'online', 'machine learning', 'deep learning'],
   install_requires=[
-          'tensorflow',
+          #'tensorflow', # this cause an missmatch into the tensorflow docker image. We will install manually in case of not found.
           'keras',
           'numpy',
           'six',
