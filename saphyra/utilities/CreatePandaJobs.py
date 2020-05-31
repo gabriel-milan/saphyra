@@ -1,7 +1,7 @@
 
 __all__ = ["createPandaJobs"]
 
-from Gaugi.storage import retrieve_kw, mkdir_p
+from Gaugi import retrieve_kw, mkdir_p
 from Gaugi.messenger import Logger
 from Gaugi.messenger.macros import *
 #from Gaugi.LoopingBounds import *
