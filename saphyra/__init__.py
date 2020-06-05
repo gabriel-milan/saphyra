@@ -41,6 +41,11 @@ from . import layers
 __all__.extend( layers.__all__        )
 from .layers import *
 
+from . import analysis
+__all__.extend( analysis.__all__        )
+from .analysis import *
+
+
 try:
   xrange
 except NameError:
