@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
   name = 'saphyra',
-  version = '2.0.4',
+  version = '2.0.7',
   license='GPL-3.0',
   description = '',
   long_description = long_description,
@@ -24,6 +24,8 @@ setuptools.setup(
           'future',
           'sklearn',
           'Gaugi',
+          'pandas',
+          'matplotlib',
       ],
   classifiers=[
     'Development Status :: 4 - Beta',

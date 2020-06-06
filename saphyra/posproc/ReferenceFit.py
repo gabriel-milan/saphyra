@@ -49,7 +49,7 @@ class ReferenceFit( Algorithm ):
 
     model  = context.getHandler("model")
     # remove the last activation and recreate the mode
-    model  = Model(model.inputs, model.layers[-2].output)
+    #model  = Model(model.inputs, model.layers[-2].output)
     imodel = context.getHandler("imodel")
     index  = context.getHandler("index")
     sort   = context.getHandler("sort" )
@@ -85,13 +85,12 @@ class ReferenceFit( Algorithm ):
     fa_op, pd_op, thresholds_op = roc_curve(y_operation, y_pred_operation)
     sp_op = np.sqrt(  np.sqrt(pd_op*(1-fa_op)) * (0.5*(pd_op+(1-fa_op)))  )
 
- 
 
     history['reference'] = {}
 
     for key, ref in self._reference.items():
 
-      d = self.calculate( train_total, val_total , ref, pd,fa,sp,thresholds, pd_val,fa_val,sp_val,thresholds_val, pd_op,fa_op,sp_op,thresholds_op )
+      d = self.calculate( y_train, y_val , y_operation, ref, pd, fa, sp, thresholds, pd_val, fa_val, sp_val, thresholds_val, pd_op,fa_op,sp_op,thresholds_op )
       MSG_INFO(self, "          : %s", key )
       MSG_INFO(self, "Reference : [Pd: %1.4f] , Fa: %1.4f and SP: %1.4f ", ref['pd'][0]*100, ref['fa'][0]*100, ref['sp']*100 )
       MSG_INFO(self, "Train     : [Pd: %1.4f] , Fa: %1.4f and SP: %1.4f ", d['pd'][0]*100, d['fa'][0]*100, d['sp']*100 )
@@ -111,33 +110,57 @@ class ReferenceFit( Algorithm ):
 
 
 
-  def calculate( self, train_total, val_total , ref, pd,fa,sp,thresholds, pd_val,fa_val,sp_val,thresholds_val, pd_op,fa_op,sp_op,thresholds_op ):
+  def calculate( self, y_train, y_val , y_op, ref, pd,fa,sp,thresholds, pd_val,fa_val,sp_val,thresholds_val, pd_op,fa_op,sp_op,thresholds_op ):
 
     d = {}
+    
+    # Check the reference counts
+    op_total = len(y_op[y_op==1])
+    if ref['pd'][2] !=  op_total):
+      ref['pd'][2] = op_total)
+      ref['pd'][1] = int(ref['pd'][0]*op_total)
+    
+    # Check the reference counts
+    op_total = len(y_op[y_op!=1])
+    if ref['fa'][2] !=  op_total):
+      ref['fa'][2] = op_total)
+      ref['fa'][1] = int(ref['fa'][0]*op_total)
+
+
+
     d['pd_ref'] = ref['pd']
     d['fa_ref'] = ref['fa']
     d['sp_ref'] = ref['sp']
     d['reference'] = ref['reference']
 
 
-    # Get the efficiencies for train dataset
+
+
+    # Train
     _, index = self.closest( pd, ref['pd'][0] )
+    train_total = len(y_train[y_train==1])
     d['pd'] = ( pd[index],  int(train_total*float(pd[index])),train_total)
+    train_total = len(y_train[y_train!=1])
     d['fa'] = ( fa[index],  int(train_total*float(fa[index])),train_total)
     d['sp'] = sp_func(d['pd'][0], d['fa'][0])
     d['threshold'] = thresholds[index]
 
 
+    # Validation
     _, index = self.closest( pd_val, ref['pd'][0] )
+    val_total = len(y_val[y_val==1])
     d['pd_val'] = ( pd_val[index],  int(val_total*float(pd_val[index])),val_total)
+    val_total = len(y_val[y_val!=1])
     d['fa_val'] = ( fa_val[index],  int(val_total*float(fa_val[index])),val_total)
     d['sp_val'] = sp_func(d['pd_val'][0], d['fa_val'][0])
     d['threshold_val'] = thresholds_val[index]
 
-    op_total = train_total+val_total
 
+    # Train + Validation
     _, index = self.closest( pd_op, ref['pd'][0] )
+    op_total = len(y_op[y_op==1])
     d['pd_op'] = ( pd_op[index],  int(op_total*float(pd_op[index])),op_total)
+    op_total = len(y_op[y_op!=1])
     d['fa_op'] = ( fa_op[index],  int(op_total*float(fa_op[index])),op_total)
     d['sp_op'] = sp_func(d['pd_op'][0], d['fa_op'][0])
     d['threshold_op'] = thresholds_op[index]
