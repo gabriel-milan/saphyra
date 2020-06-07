@@ -38,8 +38,8 @@ class ReferenceFit( Algorithm ):
 
 
   def add( self, key, reference, pd, fa ):
-    pd = (pd[0]/float(pd[1]), pd[0],pd[1])
-    fa = (fa[0]/float(fa[1]), fa[0],fa[1])
+    pd = [pd[0]/float(pd[1]), pd[0],pd[1]]
+    fa = [fa[0]/float(fa[1]), fa[0],fa[1]]
     MSG_INFO( self, '%s | %s(pd=%1.2f, fa=%1.2f, sp=%1.2f)', key, reference, pd[0]*100, fa[0]*100, sp_func(pd[0],fa[0])*100 )
     self._reference[key] = {'pd':pd, 'fa':fa, 'sp':sp_func(pd[0],fa[0]), 'reference' : reference}
 
@@ -113,19 +113,18 @@ class ReferenceFit( Algorithm ):
   def calculate( self, y_train, y_val , y_op, ref, pd,fa,sp,thresholds, pd_val,fa_val,sp_val,thresholds_val, pd_op,fa_op,sp_op,thresholds_op ):
 
     d = {}
-    
+
     # Check the reference counts
     op_total = len(y_op[y_op==1])
-    if ref['pd'][2] !=  op_total):
-      ref['pd'][2] = op_total)
+    if ref['pd'][2] !=  op_total:
+      ref['pd'][2] = op_total
       ref['pd'][1] = int(ref['pd'][0]*op_total)
-    
+
     # Check the reference counts
     op_total = len(y_op[y_op!=1])
-    if ref['fa'][2] !=  op_total):
-      ref['fa'][2] = op_total)
+    if ref['fa'][2] !=  op_total:
+      ref['fa'][2] = op_total
       ref['fa'][1] = int(ref['fa'][0]*op_total)
-
 
 
     d['pd_ref'] = ref['pd']

@@ -23,9 +23,9 @@ class Summary( Algorithm ):
 
   def execute( self, context ):
 
-    
+
     d = {}
-      
+
     x_train, y_train = context.getHandler("trnData" )
     x_val, y_val     = context.getHandler("valData" )
     model            = context.getHandler("model"    )
@@ -65,8 +65,8 @@ class Summary( Algorithm ):
     d['mse_op'] = mean_squared_error(y_operation, y_pred_operation)
 
 
-    
 
+    print(y_train)
 
     # Here, the threshold is variable and the best values will
     # be setted by the max sp value found in hte roc curve
@@ -78,15 +78,16 @@ class Summary( Algorithm ):
 
     MSG_INFO( self, "Train samples     : Prob. det (%1.4f), False Alarm (%1.4f), SP (%1.4f), AUC (%1.4f) and MSE (%1.4f)",
         pd[knee], fa[knee], sp[knee], d['auc'], d['mse'])
-    
+
 
     d['max_sp_pd'] = ( pd[knee], int(pd[knee]*sgn_total), sgn_total)
     d['max_sp_fa'] = ( fa[knee], int(fa[knee]*bkg_total), bkg_total)
     d['max_sp']    = sp[knee]
+    print('acc')
     d['acc']              = accuracy_score(y_train,y_pred>threshold)
-    d['precision_score']  = precision_score(y_train, y_pred>threshold)
-    d['recall_score']     = recall_score(y_train, y_pred>threshold)
-    d['f1_score']         = f1_score(y_train, y_pred>threshold)
+    #d['precision_score']  = precision_score(y_train, y_pred>threshold)
+    #d['recall_score']     = recall_score(y_train, y_pred>threshold)
+    #d['f1_score']         = f1_score(y_train, y_pred>threshold)
 
 
 
@@ -104,12 +105,12 @@ class Summary( Algorithm ):
     d['max_sp_fa_val'] = (fa[knee], int(fa[knee]*bkg_total_val), bkg_total_val)
     d['max_sp_val'] = sp[knee]
     d['acc_val']              = accuracy_score(y_val,y_pred_val>threshold)
-    d['precision_score_val']  = precision_score(y_val, y_pred_val>threshold)
-    d['recall_score_val']     = recall_score(y_val, y_pred_val>threshold)
-    d['f1_score_val']         = f1_score(y_val, y_pred_val>threshold)
+    #d['precision_score_val']  = precision_score(y_val, y_pred_val>threshold)
+    #d['recall_score_val']     = recall_score(y_val, y_pred_val>threshold)
+    #d['f1_score_val']         = f1_score(y_val, y_pred_val>threshold)
 
 
-    # Operation 
+    # Operation
     fa, pd, thresholds = roc_curve(y_operation, y_pred_operation)
     sp = np.sqrt(  np.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
     knee = np.argmax(sp)
@@ -123,12 +124,12 @@ class Summary( Algorithm ):
     d['max_sp_fa_op'] = ( fa[knee], int( fa[knee]*(bkg_total+bkg_total_val)), (bkg_total+bkg_total_val))
     d['max_sp_op'] = sp[knee]
     d['acc_op']              = accuracy_score(y_operation,y_pred_operation>threshold)
-    d['precision_score_op']  = precision_score(y_operation, y_pred_operation>threshold)
-    d['recall_score_op']     = recall_score(y_operation, y_pred_operation>threshold)
-    d['f1_score_op']         = f1_score(y_operation, y_pred_operation>threshold)
+    #d['precision_score_op']  = precision_score(y_operation, y_pred_operation>threshold)
+    #d['recall_score_op']     = recall_score(y_operation, y_pred_operation>threshold)
+    #d['f1_score_op']         = f1_score(y_operation, y_pred_operation>threshold)
 
     history['summary'] = d
-    
+
     return StatusCode.SUCCESS
 
 

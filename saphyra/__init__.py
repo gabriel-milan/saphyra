@@ -4,7 +4,6 @@ from . import utilities
 __all__.extend( utilities.__all__              )
 from .utilities import *
 
-
 from . import enumerations
 __all__.extend( enumerations.__all__        )
 from .enumerations import *
@@ -25,9 +24,9 @@ from . import metrics
 __all__.extend( metrics.__all__              )
 from .metrics import *
 
-from . import PandasJob
-__all__.extend( PandasJob.__all__              )
-from .PandasJob import *
+from . import BinaryClassificationJob
+__all__.extend( BinaryClassificationJob.__all__              )
+from .BinaryClassificationJob import *
 
 from . import posproc
 __all__.extend( posproc.__all__              )

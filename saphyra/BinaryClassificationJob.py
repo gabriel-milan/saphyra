@@ -1,6 +1,6 @@
 
 
-__all__ = ['PandasJob']
+__all__ = ['BinaryClassificationJob']
 
 from Gaugi.messenger import Logger, LoggingLevel
 from Gaugi.messenger.macros import *
@@ -20,7 +20,7 @@ from tensorflow.keras.models import clone_model
 from datetime import datetime
 import time
 
-class PandasJob( Logger ):
+class BinaryClassificationJob( Logger ):
 
   def __init__(self , pattern_generator, **kw ):
 
@@ -29,20 +29,20 @@ class PandasJob( Logger ):
     self._pattern_generator = pattern_generator
 
 
-    self._optimizer     = retrieve_kw( kw, 'optimizer'  , 'adam'                )
-    self._loss          = retrieve_kw( kw, 'loss'       , 'binary_crossentropy' )
-    self._epochs        = retrieve_kw( kw, 'epochs'     , 1000                  )
-    self._batch_size    = retrieve_kw( kw, 'batch_size' , 1024                  )
-    self.callbacks      = retrieve_kw( kw, 'callbacks'  , []                    )
-    self.posproc        = retrieve_kw( kw, 'posproc'    , []                    )
-    self.metrics        = retrieve_kw( kw, 'metrics'    , []                    )
-    self._sorts         = retrieve_kw( kw, 'sorts'      , []                    )
-    self._inits         = retrieve_kw( kw, 'inits'      , []                    )
-    self.crossval       = retrieve_kw( kw, 'crossval'   , NotSet                )
-    self._verbose       = retrieve_kw( kw, 'verbose'    , True                  )
-    self._class_weight  = retrieve_kw( kw, 'class_weight' , False               )
-    self._save_history  = retrieve_kw( kw, 'save_history' , True                )
-    self.ppChain        = retrieve_kw( kw, 'ppChain'    , PreProcChain_v1([NoPreProc()]))
+    self._optimizer     = retrieve_kw( kw, 'optimizer'      , 'adam'                            )
+    self._loss          = retrieve_kw( kw, 'loss'           , 'binary_crossentropy'             )
+    self._epochs        = retrieve_kw( kw, 'epochs'         , 1000                              )
+    self._batch_size    = retrieve_kw( kw, 'batch_size'     , 1024                              )
+    self.callbacks      = retrieve_kw( kw, 'callbacks'      , []                                )
+    self.posproc        = retrieve_kw( kw, 'posproc'        , []                                )
+    self.metrics        = retrieve_kw( kw, 'metrics'        , []                                )
+    self._sorts         = retrieve_kw( kw, 'sorts'          , []                                )
+    self._inits         = retrieve_kw( kw, 'inits'          , []                                )
+    self.crossval       = retrieve_kw( kw, 'crossval'       , NotSet                            )
+    self._verbose       = retrieve_kw( kw, 'verbose'        , True                              )
+    self._class_weight  = retrieve_kw( kw, 'class_weight'   , False                             )
+    self._save_history  = retrieve_kw( kw, 'save_history'   , True                              )
+    self.ppChain        = retrieve_kw( kw, 'ppChain'        , PreProcChain_v1([NoPreProc()])    )
 
 
 
@@ -168,6 +168,12 @@ class PandasJob( Logger ):
 
       # get the current kfold and train, val sets
       x_train, x_val, y_train, y_val, self._index_from_cv = self.pattern_g( self._pattern_generator, self._crossval, sort )
+
+
+      if ( len(np.unique(y_train))!= 2 ):
+        MSG_FATAL(self, "The number of targets is different than 2. This job is used for binary classification.")
+
+
       # check if there are fewer events than the batch_size
       _, n_evt_per_class = np.unique(y_train, return_counts=True)
       _batch_size = (self._batch_size if np.min(n_evt_per_class) > self._batch_size
@@ -192,10 +198,7 @@ class PandasJob( Logger ):
 
           # force the context is empty for each training
           self.getContext().clear()
-
-          self.getContext().setHandler( "jobId", self._jobId            )
-
-
+          self.getContext().setHandler( "jobId"   , self._jobId         )
           self.getContext().setHandler( "crossval", self._crossval      )
           self.getContext().setHandler( "index"   , self._index_from_cv )
           self.getContext().setHandler( "valData" , (x_val, y_val)      )
@@ -218,20 +221,23 @@ class PandasJob( Logger ):
 
 
           MSG_INFO( self, "Training model id (%d) using sort (%d) and init (%d)", self._id_models[imodel], sort, init )
-          MSG_INFO( self, "Train Samples      :  (%d, %d)", len(y_train[y_train==1]), len(y_train[y_train==0]))
-          MSG_INFO( self, "Validation Samples :  (%d, %d)", len(y_val[y_val==1]),len(y_val[y_val==0]))
+          MSG_INFO( self, "Train Samples      :  (%d, %d)", len(y_train[y_train==1]), len(y_train[y_train!=1]))
+          MSG_INFO( self, "Validation Samples :  (%d, %d)", len(y_val[y_val==1]),len(y_val[y_val!=1]))
 
-          self.getContext().setHandler( "model"   , model_for_this_init )
-          self.getContext().setHandler( "sort"    , sort                )
-          self.getContext().setHandler( "init"    , init                )
-          self.getContext().setHandler( "imodel"  , self._id_models[imodel])
+          print('1')
+          self.getContext().setHandler( "model"   , model_for_this_init     )
+          self.getContext().setHandler( "sort"    , sort                    )
+          self.getContext().setHandler( "init"    , init                    )
+          self.getContext().setHandler( "imodel"  , self._id_models[imodel] )
 
+          print('2')
           callbacks = deepcopy(self.callbacks)
           for c in callbacks:
             if hasattr(c, 'set_validation_data'):
               c.set_validation_data( (x_val,y_val) )
 
 
+          print('3')
           start = datetime.now()
 
           # Training
@@ -247,6 +253,7 @@ class PandasJob( Logger ):
                               shuffle         = True).history
 
           end = datetime.now()
+          print('4')
           self.getContext().setHandler("time" , end-start)
 
 
@@ -256,18 +263,21 @@ class PandasJob( Logger ):
 
           self.getContext().setHandler( "history", history )
 
+          print('5')
 
-          # prometheus like...
           for proc in self.posproc:
             MSG_INFO( self, "Executing the pos processor %s", proc.name() )
             if proc.execute( self.getContext() ).isFailure():
               MSG_ERROR(self, "There is an erro in %s", proc.name())
 
+          print('6')
           # add the tuned parameters to the output file
           self._tunedData.attach_ctx( self.getContext() )
+          print('7')
 
           # Clear everything for the next init
           K.clear_session()
+          print('8')
 
 
       # You must clean everythin before reopen the dataset
