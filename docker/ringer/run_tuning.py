@@ -15,10 +15,6 @@ parser.add_argument('-c','--configFile', action='store',
         dest='configFile', required = True,
             help = "The job config file that will be used to configure the job (sort and init).")
 
-parser.add_argument('-o','--outputFile', action='store',
-        dest='outputFile', required = False, default = None,
-            help = "The output tuning name.")
-
 parser.add_argument('-d','--dataFile', action='store',
         dest='dataFile', required = False, default = None,
             help = "The data/target file used to train the model.")
@@ -35,8 +31,10 @@ parser.add_argument('-b', '--branch', action='store',
         dest='branch', required = True, default = None,
             help = "The tuning branch in ringetunings repository")
 
-parser.add_argument('--dry_run', action='store_true', dest='dry_run', required = False,
-            help = "dry_run")
+parser.add_argument('-v', '--volume', action='store',
+        dest='volume', required = True, default = None,
+            help = "The output path")
+
 
 
 if len(sys.argv)==1:
@@ -45,18 +43,20 @@ if len(sys.argv)==1:
 
 args = parser.parse_args()
 
+volume = args.volume
 
-commands = open('/commands.sh', 'w')
+
+commands = open(volume+'/commands.sh', 'w')
 # Update all pip packages
-commands.write('. /setup_envs.sh\n')
+commands.write('source /setup_envs.sh\n')
 # Download the ringer tuning repository
-commands.write("cd / && git clone https://github.com/jodafons/ringer.git && cd /ringer && git checkout %s && cd versions/%s\n"%(args.branch,args.tag))
-commands.write("python job_tuning.py -d %s -o %s -c %s -r %s\n"%(args.dataFile, args.outputFile, args.configFile, args.refFile) )
+commands.write("cd %s && git clone https://github.com/jodafons/ringer.git && cd ringer && git checkout %s && cd versions/%s\n"%(voume, args.branch,args.tag))
+commands.write("python job_tuning.py -d %s -o %s -c %s -r %s\n"%(args.dataFile, volume, args.configFile, args.refFile) )
 commands.close()
 
-if not args.dry_run:
-  os.system('. /commands.sh')
-
+os.system('source %s/commands.sh'%volume)
+os.system( 'rm -rf %s/ringer'%volume)
+os.system( 'rm -rf %s/command.sh'%volume)
 
 
 
