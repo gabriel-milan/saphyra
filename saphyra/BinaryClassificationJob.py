@@ -198,6 +198,9 @@ class BinaryClassificationJob( Logger ):
 
           # force the context is empty for each training
           self.getContext().clear()
+          if self._ppChain.takesParamsFromData:
+            MSG_DEBUG( self, "Adding ppChain parameters to the Context..." )
+            self.getContext().setHandler( 'ppChain_params', self.ppChain._get_params() )
           self.getContext().setHandler( "jobId"   , self._jobId         )
           self.getContext().setHandler( "crossval", self._crossval      )
           self.getContext().setHandler( "index"   , self._index_from_cv )

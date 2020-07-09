@@ -1,24 +1,24 @@
 
-__all__ = ['StandardScaler']
+__all__ = ['MinMaxScaler']
 
 from saphyra.preproc import PrepObj
 from Gaugi import checkForUnusedVars
 
 import numpy as np
-from sklearn.preprocessing import StandardScaler as skStdScaler
+from sklearn.preprocessing import MinMaxScaler as minmaxScaler
 
 
-class StandardScaler(PrepObj):
+class MinMaxScaler(PrepObj):
     """
-    Applies Standard Scaler to data. This implementation uses the sklearn StandardScaler
+    Applies Min Max Scaler to data. This implementation uses the sklearn MinMaxScaler
     implementation.
 
-    https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html
+    https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html
     """
     takesParamsFromData = True
 
     def __init__(self, d = {}, **kw):    
-        self.scaler = skStdScaler()
+        self.scaler = minmaxScaler()
         d.update( kw ); del kw
         PrepObj.__init__( self, d )
         checkForUnusedVars(d, self._warning )
@@ -34,10 +34,10 @@ class StandardScaler(PrepObj):
     def _get_params(self):
         '''
         This method will return the scaler parameters as a array that can be save.
-        The arrays has ndim x 2 size, where the first collumn is the mean and
+        The arrays has ndim x 2 size, where the first collumn is the min and
         the second is the scale.
         '''
-        return np.concatenate((self.scaler.mean_[np.newaxis],
+        return np.concatenate((self.scaler.min_[np.newaxis],
                                self.scaler.scale_[np.newaxis]), axis=0).T
 
     def __str__(self):

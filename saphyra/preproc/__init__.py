@@ -16,6 +16,10 @@ from . import StandardScaler
 __all__.extend( StandardScaler.__all__            )
 from .StandardScaler import *
 
+from . import MinMaxScaler
+__all__.extend( MinMaxScaler.__all__ )
+from .MinMaxScaler import *
+
 from . import RingerRp
 __all__.extend( RingerRp.__all__            )
 from .RingerRp import *
