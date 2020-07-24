@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import tensorflow as tf
 from tensorflow import keras
-from saphyra import SP_Metric
+from saphyra.metrics.metrics import SP_Metric
 from sklearn.model_selection import train_test_split
 import numpy as np
 
