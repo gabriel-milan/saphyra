@@ -23,7 +23,7 @@ setuptools.setup(
           'scipy>=1.4.1',
           'future',
           'sklearn',
-          'Gaugi==1.0.11',
+          'Gaugi>=1.0.13',
           'pandas',
           'matplotlib',
       ],
