@@ -29,9 +29,9 @@ def test():
       tf.keras.layers.Flatten(input_shape=(3,)),
       tf.keras.layers.Dense(2, activation='relu'),
       tf.keras.layers.Dropout(0.2),
-      tf.keras.layers.Dense(1)
+      tf.keras.layers.Dense(1, activation='sigmoid')
     ])
-    model.compile('adam', loss='mse', metrics=[SP_Metric()])
+    model.compile('adam', loss='binary_crossentropy', metrics=[SP_Metric()])
     model.fit (
         x_train, y_train,
         epochs = 5000,
