@@ -18,12 +18,12 @@ setuptools.setup(
   install_requires=[
           #'tensorflow', # this cause an missmatch into the tensorflow docker image. We will install manually in case of not found.
           'keras',
-          'numpy',
-          'six',
-          'scipy',
+          'numpy>=1.18.1',
+          'six>=1.12.0',
+          'scipy>=1.4.1',
           'future',
           'sklearn',
-          'Gaugi',
+          'Gaugi>=1.0.13',
           'pandas',
           'matplotlib',
       ],
