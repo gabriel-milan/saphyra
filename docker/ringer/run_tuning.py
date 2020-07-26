@@ -48,7 +48,7 @@ volume = args.volume
 
 commands = open(volume+'/commands.sh', 'w')
 # Update all pip packages
-commands.write('source /setup_envs.sh\n')
+# commands.write('source /setup_envs.sh\n')
 # Download the ringer tuning repository
 commands.write("cd %s && git clone https://github.com/jodafons/ringer.git && cd ringer && git checkout %s && cd versions/%s\n"%(voume, args.branch,args.tag))
 commands.write("python job_tuning.py -d %s -o %s -c %s -r %s\n"%(args.dataFile, volume, args.configFile, args.refFile) )

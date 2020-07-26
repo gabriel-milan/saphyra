@@ -1,6 +1,7 @@
 # Base Docker image
 
-* Build script: `./build.sh`
-* Run script: `./run.sh`
+[![](https://images.microbadger.com/badges/version/jodafons/saphyra:base.svg)](https://microbadger.com/images/jodafons/saphyra:base "Saphyra base image tag")
 
-Always remember to do `source setup_envs.sh` on docker start.
+[![](https://images.microbadger.com/badges/image/jodafons/saphyra:base.svg)](https://microbadger.com/images/jodafons/saphyra:base "Saphyra base image size")
+
+Contains the basic setup for using saphyra on containers.

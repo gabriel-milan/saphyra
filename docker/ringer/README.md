@@ -1,6 +1,7 @@
-# Ringer Project  Docker image
+# Ringer Project Docker image
 
-* Build script: `./build.sh`
-* Run script: `./run.sh`
+[![](https://images.microbadger.com/badges/version/jodafons/saphyra:ringer.svg)](https://microbadger.com/images/jodafons/saphyra:ringer "Saphyra ringer image tag")
 
-Always remember to do `source setup_envs.sh` on docker start.
+[![](https://images.microbadger.com/badges/image/jodafons/saphyra:ringer.svg)](https://microbadger.com/images/jodafons/saphyra:ringer "Saphyra ringer image size")
+
+Contains base script for running tunings using containers.
