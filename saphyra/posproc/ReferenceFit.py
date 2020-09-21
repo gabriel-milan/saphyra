@@ -60,8 +60,8 @@ class ReferenceFit( Algorithm ):
     x_val , y_val    = context.getHandler("valData")
 
     # Get all outputs before the last activation function
-    y_pred = model.predict( x_train, batch_size = 1024, verbose=1 )
-    y_pred_val = model.predict( x_val, batch_size = 1024, verbose=1 )
+    y_pred = model.predict( x_train, batch_size = 1024, verbose=0 )
+    y_pred_val = model.predict( x_val, batch_size = 1024, verbose=0 )
 
     # get vectors for operation mode (train+val)
     y_pred_operation = np.concatenate( (y_pred, y_pred_val), axis=0)

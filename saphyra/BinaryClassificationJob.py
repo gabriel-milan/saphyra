@@ -38,16 +38,18 @@ class BinaryClassificationJob( Logger ):
     self.metrics        = retrieve_kw( kw, 'metrics'        , []                                )
     self._sorts         = retrieve_kw( kw, 'sorts'          , []                                )
     self._inits         = retrieve_kw( kw, 'inits'          , []                                )
-    self.crossval       = retrieve_kw( kw, 'crossval'       , NotSet                            )
+    self.crossval       = retrieve_kw( kw, 'crossval'       , None                              )
     self._verbose       = retrieve_kw( kw, 'verbose'        , True                              )
     self._class_weight  = retrieve_kw( kw, 'class_weight'   , False                             )
     self._save_history  = retrieve_kw( kw, 'save_history'   , True                              )
-    self.ppChain        = retrieve_kw( kw, 'ppChain'        , PreProcChain_v1([NoPreProc()])    )
+    #self.ppChain        = retrieve_kw( kw, 'ppChain'        , PreProcChain_v1([NoPreProc()])    )
+    self.ppChain        = retrieve_kw( kw, 'ppChain'        , None                              )
 
 
 
     # Get configurations and model from job config
-    job_auto_config = retrieve_kw( kw, 'job'        , NotSet                )
+    job_auto_config = retrieve_kw( kw, 'job'        , None                )
+
     # read the job configuration from file
     if job_auto_config:
       if type(job_auto_config) is str:
@@ -63,15 +65,15 @@ class BinaryClassificationJob( Logger ):
       self._jobId = job.id()
 
     # get model and tag from model file or lists
-    models = retrieve_kw( kw, 'models', NotSet )
-    if not models is NotSet:
+    models = retrieve_kw( kw, 'models', None )
+    if models:
       if type(models) is str:
         from saphyra.readers import ModelReader
         self._models, self._id_models = ModelReader().load( s ).get_models()
       else:
         self._models = models
-        self._id_modes = range(len(models))
-
+        self._id_models = [id for id in range(len(models))]
+        self._jobId = 0
 
     # get all parameters to used in the output step
     from saphyra.readers.versions import TunedData_v1
@@ -83,8 +85,8 @@ class BinaryClassificationJob( Logger ):
     if type(self._inits) is int:
       self._inits = range(self._inits)
 
-    self._context = NotSet
-    self._index_from_cv = NotSet
+    self._context = None
+    self._index_from_cv = None
 
 
   def getContext(self):
@@ -94,9 +96,11 @@ class BinaryClassificationJob( Logger ):
   def setContext(self, ctx):
     self._context = ctx
 
+
   @property
   def crossval(self):
     return self._crossval
+
 
   @crossval.setter
   def crossval(self, s):
@@ -179,16 +183,19 @@ class BinaryClassificationJob( Logger ):
       _batch_size = (self._batch_size if np.min(n_evt_per_class) > self._batch_size
                      else np.min(n_evt_per_class))
       MSG_INFO( self, "Using %d as batch size.", _batch_size)
+     
+
       # Pre processing step
-      if self._ppChain.takesParamsFromData:
-        MSG_DEBUG( self, "Take parameters from train set..." )
-        self._ppChain.takeParams( x_train )
+      if self._ppChain:
+        if self._ppChain.takesParamsFromData:
+          MSG_DEBUG( self, "Take parameters from train set..." )
+          self._ppChain.takeParams( x_train )
 
-      MSG_INFO( self, "Pre processing train set with %s", self._ppChain )
-      x_train = self._ppChain( x_train )
+        MSG_INFO( self, "Pre processing train set with %s", self._ppChain )
+        x_train = self._ppChain( x_train )
 
-      MSG_INFO( self, "Pre processing validation set with %s", self._ppChain )
-      x_val = self._ppChain( x_val )
+        MSG_INFO( self, "Pre processing validation set with %s", self._ppChain )
+        x_val = self._ppChain( x_val )
 
 
 
@@ -198,9 +205,9 @@ class BinaryClassificationJob( Logger ):
 
           # force the context is empty for each training
           self.getContext().clear()
-          if self._ppChain.takesParamsFromData:
-            MSG_DEBUG( self, "Adding ppChain parameters to the Context..." )
-            self.getContext().setHandler( 'ppChain_params', self.ppChain._get_params() )
+          #if self._ppChain.takesParamsFromData:
+          #  MSG_DEBUG( self, "Adding ppChain parameters to the Context..." )
+          #  self.getContext().setHandler( 'ppChain_params', self.ppChain._get_params() )
           self.getContext().setHandler( "jobId"   , self._jobId         )
           self.getContext().setHandler( "crossval", self._crossval      )
           self.getContext().setHandler( "index"   , self._index_from_cv )
@@ -227,20 +234,17 @@ class BinaryClassificationJob( Logger ):
           MSG_INFO( self, "Train Samples      :  (%d, %d)", len(y_train[y_train==1]), len(y_train[y_train!=1]))
           MSG_INFO( self, "Validation Samples :  (%d, %d)", len(y_val[y_val==1]),len(y_val[y_val!=1]))
 
-          print('1')
           self.getContext().setHandler( "model"   , model_for_this_init     )
           self.getContext().setHandler( "sort"    , sort                    )
           self.getContext().setHandler( "init"    , init                    )
           self.getContext().setHandler( "imodel"  , self._id_models[imodel] )
 
-          print('2')
           callbacks = deepcopy(self.callbacks)
           for c in callbacks:
             if hasattr(c, 'set_validation_data'):
               c.set_validation_data( (x_val,y_val) )
 
 
-          print('3')
           start = datetime.now()
 
           # Training
@@ -256,7 +260,7 @@ class BinaryClassificationJob( Logger ):
                               shuffle         = True).history
 
           end = datetime.now()
-          print('4')
+          
           self.getContext().setHandler("time" , end-start)
 
 
@@ -266,21 +270,17 @@ class BinaryClassificationJob( Logger ):
 
           self.getContext().setHandler( "history", history )
 
-          print('5')
 
           for proc in self.posproc:
             MSG_INFO( self, "Executing the pos processor %s", proc.name() )
             if proc.execute( self.getContext() ).isFailure():
               MSG_ERROR(self, "There is an erro in %s", proc.name())
 
-          print('6')
           # add the tuned parameters to the output file
           self._tunedData.attach_ctx( self.getContext() )
-          print('7')
 
           # Clear everything for the next init
           K.clear_session()
-          print('8')
 
 
       # You must clean everythin before reopen the dataset

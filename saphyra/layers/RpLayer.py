@@ -26,7 +26,7 @@ class RpLayer(Layer):
 
   def __init__(self, rvec, **kwargs):
     super(RpLayer, self).__init__(**kwargs)
-    self.__rvec = rvec
+    self.rvec = rvec
     self.output_dim = (len(rvec),)
 
 
