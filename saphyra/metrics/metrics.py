@@ -48,8 +48,8 @@ class SP_Metric (AUC):
   def result(self):
 
     # Add K.epsilon() for forbiding division by zero
-    fa = self.false_positives / (self.true_negatives + self.false_positives + K.epsilon())
-    pd = self.true_positives  / (self.true_positives + self.false_positives + K.epsilon())
+    fa = self.false_positives / (self.true_positives + self.false_positives)
+    pd = self.true_positives  / (self.true_positives + self.false_positives)
     sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
     knee = K.argmax(sp)
     return sp[knee]
@@ -63,8 +63,8 @@ class PD_Metric (AUC):
   def result(self):
 
     # Add K.epsilon() for forbiding division by zero
-    fa = self.false_positives / (self.true_negatives + self.false_positives + K.epsilon())
-    pd = self.true_positives  / (self.true_positives + self.false_positives + K.epsilon())
+    fa = self.false_positives / (self.true_positives + self.false_positives)
+    pd = self.true_positives  / (self.true_positives + self.false_positives)
     sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
     knee = K.argmax(sp)
     return pd[knee]
@@ -78,8 +78,8 @@ class FA_Metric (AUC):
   def result(self):
 
     # Add K.epsilon() for forbiding division by zero
-    fa = self.false_positives / (self.true_negatives + self.false_positives + K.epsilon())
-    pd = self.true_positives  / (self.true_positives + self.false_positives + K.epsilon())
+    fa = self.false_positives / (self.true_positives + self.false_positives)
+    pd = self.true_positives  / (self.true_positives + self.false_positives)
     sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
     knee = K.argmax(sp)
     return fa[knee]
