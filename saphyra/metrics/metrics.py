@@ -7,9 +7,12 @@ __all__ = [
   "FA_Metric"
 ]
 
+import numpy as np 
 from tensorflow.keras.metrics import AUC
 from tensorflow.keras import backend as K
 
+import tensorflow as tf 
+tf.executing_eagerly()
 
 def auc(y_true, y_pred, num_thresholds=2000):
   import tensorflow as tf
@@ -48,9 +51,10 @@ class SP_Metric (AUC):
   def result(self):
 
     # Add K.epsilon() for forbiding division by zero
-    fa = self.false_positives / (self.true_positives + self.false_positives)
-    pd = self.true_positives  / (self.true_positives + self.false_positives)
-    sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
+    fa = self.false_positives / (self.true_negatives + self.false_positives + K.epsilon())
+    pd = self.true_positives  / (self.true_positives + self.false_negatives + K.epsilon())
+
+    sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa))))
     knee = K.argmax(sp)
     return sp[knee]
 
@@ -63,8 +67,9 @@ class PD_Metric (AUC):
   def result(self):
 
     # Add K.epsilon() for forbiding division by zero
-    fa = self.false_positives / (self.true_positives + self.false_positives)
-    pd = self.true_positives  / (self.true_positives + self.false_positives)
+    fa = self.false_positives / (self.true_negatives + self.false_positives + K.epsilon())
+    pd = self.true_positives  / (self.true_positives + self.false_negatives + K.epsilon())
+    
     sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
     knee = K.argmax(sp)
     return pd[knee]
@@ -78,8 +83,9 @@ class FA_Metric (AUC):
   def result(self):
 
     # Add K.epsilon() for forbiding division by zero
-    fa = self.false_positives / (self.true_positives + self.false_positives)
-    pd = self.true_positives  / (self.true_positives + self.false_positives)
+    fa = self.false_positives / (self.true_negatives + self.false_positives + K.epsilon())
+    pd = self.true_positives  / (self.true_positives + self.false_negatives + K.epsilon())
+
     sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
     knee = K.argmax(sp)
     return fa[knee]
