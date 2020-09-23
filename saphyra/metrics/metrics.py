@@ -24,7 +24,7 @@ def f1_score(y_true, y_pred):
 
 ###
 #
-# => SP metric
+# => SP, PD, FA metric
 # 
 # PS: name is SP_Metric so it won't
 # conflict with legacy "sp" metric,
@@ -51,3 +51,33 @@ class SP_Metric (AUC):
     sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
     knee = K.argmax(sp)
     return sp[knee]
+
+class PD_Metric (AUC):
+
+  # This implementation works with Tensorflow backend tensors.
+  # That way, calculations happen faster and results can be seen
+  # while training, not only after each epoch
+
+  def result(self):
+
+    # Add K.epsilon() for forbiding division by zero
+    fa = self.false_positives / (self.true_negatives + self.false_positives + K.epsilon())
+    pd = self.true_positives  / (self.true_positives + self.false_positives + K.epsilon())
+    sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
+    knee = K.argmax(sp)
+    return pd[knee]
+
+class FA_Metric (AUC):
+
+  # This implementation works with Tensorflow backend tensors.
+  # That way, calculations happen faster and results can be seen
+  # while training, not only after each epoch
+
+  def result(self):
+
+    # Add K.epsilon() for forbiding division by zero
+    fa = self.false_positives / (self.true_negatives + self.false_positives + K.epsilon())
+    pd = self.true_positives  / (self.true_positives + self.false_positives + K.epsilon())
+    sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
+    knee = K.argmax(sp)
+    return fa[knee]
