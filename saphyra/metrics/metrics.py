@@ -3,6 +3,8 @@ __all__ = [
   "auc",
   "f1_score",
   "SP_Metric",
+  "PD_Metric",
+  "FA_Metric"
 ]
 
 from tensorflow.keras.metrics import AUC
