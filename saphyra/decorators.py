@@ -14,6 +14,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.metrics import roc_curve
 
 import numpy as np
+import collections
 
 def sp_func(pd, fa):
   return np.sqrt(  np.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
@@ -196,7 +197,6 @@ class Reference( Logger ):
     history['reference'] = {}
 
     for key, ref in self.__references.items():
-
       d = self.calculate( y_train, y_val , y_operation, ref, pd, fa, sp, thresholds, pd_val, fa_val, sp_val, thresholds_val, pd_op,fa_op,sp_op,thresholds_op )
       MSG_INFO(self, "          : %s", key )
       MSG_INFO(self, "Reference : [Pd: %1.4f] , Fa: %1.4f and SP: %1.4f ", ref['pd'][0]*100, ref['fa'][0]*100, ref['sp']*100 )
@@ -214,7 +214,7 @@ class Reference( Logger ):
   def calculate( self, y_train, y_val , y_op, ref, pd,fa,sp,thresholds, pd_val,fa_val,sp_val,thresholds_val, pd_op,fa_op,sp_op,thresholds_op ):
 
     d = {}
-    def closest( self, values , ref ):
+    def closest( values , ref ):
       index = np.abs(values-ref)
       index = index.argmin()
       return values[index], index

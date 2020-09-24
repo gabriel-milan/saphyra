@@ -1,5 +1,5 @@
 
-__all__ = ["sp"]
+__all__ = []
 
 from tensorflow.keras.callbacks import Callback
 from Gaugi.messenger.macros import *
