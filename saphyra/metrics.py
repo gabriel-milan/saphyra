@@ -2,17 +2,17 @@
 __all__ = [
   "auc",
   "f1_score",
-  "SP_Metric",
-  "PD_Metric",
-  "FA_Metric"
+  "sp",
+  "pd",
+  "fa"
 ]
 
 import numpy as np 
 from tensorflow.keras.metrics import AUC
 from tensorflow.keras import backend as K
-
 import tensorflow as tf 
 tf.executing_eagerly()
+
 
 def auc(y_true, y_pred, num_thresholds=2000):
   import tensorflow as tf
@@ -27,27 +27,13 @@ def f1_score(y_true, y_pred):
   K.get_session().run(tf.local_variables_initializer())
   return f1
 
-###
-#
-# => SP, PD, FA metric
-# 
-# PS: name is SP_Metric so it won't
-# conflict with legacy "sp" metric,
-# which is actually a callback.
-#
-# Using this class, you may add it to
-# your `model.compile` method like the
-# following:
-#
-# model.compile (optimizer='...', loss='...', metrics=[SP_Metric()]) 
-#
-###
-class SP_Metric (AUC):
+
+
+class sp(AUC):
 
   # This implementation works with Tensorflow backend tensors.
   # That way, calculations happen faster and results can be seen
   # while training, not only after each epoch
-
   def result(self):
 
     # Add K.epsilon() for forbiding division by zero
@@ -58,12 +44,11 @@ class SP_Metric (AUC):
     knee = K.argmax(sp)
     return sp[knee]
 
-class PD_Metric (AUC):
+class pd(AUC):
 
   # This implementation works with Tensorflow backend tensors.
   # That way, calculations happen faster and results can be seen
   # while training, not only after each epoch
-
   def result(self):
 
     # Add K.epsilon() for forbiding division by zero
@@ -74,12 +59,12 @@ class PD_Metric (AUC):
     knee = K.argmax(sp)
     return pd[knee]
 
-class FA_Metric (AUC):
+
+class fa(AUC):
 
   # This implementation works with Tensorflow backend tensors.
   # That way, calculations happen faster and results can be seen
   # while training, not only after each epoch
-
   def result(self):
 
     # Add K.epsilon() for forbiding division by zero

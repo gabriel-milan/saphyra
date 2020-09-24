@@ -7,7 +7,7 @@ python:
 before_install:
   - sudo apt-get install python3-setuptools
   - sudo apt-get install python3-pip python3-dev build-essential
-  - pip3 install tensorflow
+  - pip3 install tensorflow gaugi
 
 install:
   - easy_install .

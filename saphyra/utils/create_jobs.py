@@ -1,13 +1,11 @@
 
-__all__ = ["createPandaJobs"]
+__all__ = ["create_jobs"]
 
 from Gaugi import retrieve_kw, mkdir_p
 from Gaugi.messenger import Logger
 from Gaugi.messenger.macros import *
-#from Gaugi.LoopingBounds import *
 
 from sklearn.model_selection import KFold
-from saphyra.preproc import Norm1
 
 # A simple solution need to refine the documentation
 from itertools import product
@@ -16,7 +14,7 @@ def create_iter(fun, n_items_per_job, items_lim):
            if (i+n_items_per_job) <= items_lim 
            else fun(i, items_lim % n_items_per_job) 
            for i in range(0, items_lim, n_items_per_job)])
-  #return [fun(i, n_items_per_job) for i in range(0, items_lim, n_items_per_job)]
+
 
 # default model (ringer vanilla)
 # Remove the keras dependence and get keras from tensorflow 2.0
@@ -28,7 +26,7 @@ default_model.add(tf.keras.layers.Activation('tanh'))
  
 
 
-class CreatePandaJobs( Logger ):
+class create_configuration_jobs( Logger ):
   '''
   Documentation (TODO)
   '''
@@ -54,7 +52,6 @@ class CreatePandaJobs( Logger ):
     models              = retrieve_kw( kw, 'models'       ,   [default_model]           )
     model_tags          = retrieve_kw( kw, 'model_tags'   ,   ['mlp_100_5_1']           )
     crossval            = retrieve_kw( kw, 'crossval'     , KFold(10,shuffle=True, random_state=512)  )
-    ppChain             = retrieve_kw( kw, 'ppChain'      ,         [Norm1()]           )
 
     time_stamp = self.time_stamp()    
     # creating the job mechanism file first
@@ -100,6 +97,6 @@ class CreatePandaJobs( Logger ):
 
     MSG_INFO( self, "A total of %d jobs...", nJobs)
 
-createPandaJobs = CreatePandaJobs()
+create_jobs = create_configuration_jobs()
 
 
