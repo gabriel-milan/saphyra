@@ -5,8 +5,14 @@ def test_tuning():
   def getPatterns( path, cv, sort):
   
     from sklearn.datasets import load_iris
+    from sklearn.preprocessing import StandardScaler
+
+    scaler = StandardScaler()
+
     iris = load_iris()
     data = iris['data'][:100]
+    data = scaler.fit_transform(data)
+    
     target = iris['target'][:100]
     # This is mandatory
     splits = [(train_index, val_index) for train_index, val_index in cv.split(data,target)]
@@ -35,7 +41,7 @@ def test_tuning():
   from saphyra.decorators import Summary
   decorators = [Summary()]
   
-  from saphyra.metrics import sp
+  from saphyra.metrics import sp, pd, fa
   sp = sp(num_thresholds=1000,
           curve="ROC",
           summation_method="interpolation",
@@ -45,6 +51,23 @@ def test_tuning():
           )
   
   
+  pd = pd(num_thresholds=1000,
+          curve="ROC",
+          summation_method="interpolation",
+          name=None,
+          dtype=None,
+          thresholds=None,
+          )
+
+  fa = fa(num_thresholds=1000,
+          curve="ROC",
+          summation_method="interpolation",
+          name=None,
+          dtype=None,
+          thresholds=None,
+          )
+  
+
   from tensorflow.keras.callbacks import EarlyStopping
   stop = EarlyStopping(monitor='val_sp', mode='max', verbose=1, patience=25, restore_best_weights=True)
   
@@ -62,7 +85,7 @@ def test_tuning():
   job = BinaryClassificationJob(  PatternGenerator( "", getPatterns ),
                                   StratifiedKFold(n_splits=10, random_state=512, shuffle=True),
                                   loss              = 'binary_crossentropy',
-                                  metrics           = ['accuracy', sp],
+                                  metrics           = ['accuracy', sp, pd, fa],
                                   callbacks         = [stop],
                                   epochs            = 50,
                                   class_weight      = True,
