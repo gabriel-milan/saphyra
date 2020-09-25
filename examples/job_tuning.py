@@ -144,23 +144,10 @@ ref_target = [
               ]
 
 
-from saphyra import ReferenceReader
-ref_obj = ReferenceReader().load(args.refFile)
 
 
-from saphyra.decorators import Reference
-correction = Reference()
-for ref in ref_target:
-  pd = (ref_obj.getSgnPassed(ref[0]) , ref_obj.getSgnTotal(ref[0]))
-  fa = (ref_obj.getBkgPassed(ref[0]) , ref_obj.getBkgTotal(ref[0]))
-  correction.add( ref[0], ref[1], pd, fa )
-
-
-from saphyra.decorators import Summary
-decorators = [Summary(), correction]
-
-
-
+from saphyra.decorators import Summary, Reference
+decorators = [Summary(), Reference(args.refFile, ref_target) ]
 
 from tensorflow.keras.callbacks import EarlyStopping
 stop = EarlyStopping(monitor='val_sp', mode='max', verbose=1, patience=25, restore_best_weights=True)
@@ -184,7 +171,7 @@ job = BinaryClassificationJob(  PatternGenerator( args.dataFile, getPatterns ),
                                 loss              = 'binary_crossentropy',
                                 metrics           = ['accuracy', sp_metric, pd_metric, fa_metric],
                                 callbacks         = [stop, tensorboard],
-                                epochs            = 100,
+                                epochs            = 2,
                                 class_weight      = True,
                                 sorts             = 1,
                                 inits             = 1,

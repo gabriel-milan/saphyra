@@ -126,6 +126,7 @@ class Summary( Logger ):
     return StatusCode.SUCCESS
 
 
+ 
 
 
 
@@ -137,15 +138,24 @@ class Reference( Logger ):
   #
   # Constructor
   #
-  def __init__( self ):
+  def __init__( self , refFile=None, targets=None):
     Logger.__init__(self)
     self.__references = collections.OrderedDict()
 
+    # Set all references from the reference file and target list
+    if refFile and targets:
+      from saphyra.core import ReferenceReader
+      refObj = ReferenceReader().load(refFile)
+      for ref in targets:
+        pd = (refObj.getSgnPassed(ref[0]) , refObj.getSgnTotal(ref[0]))
+        fa = (refObj.getBkgPassed(ref[0]) , refObj.getBkgTotal(ref[0]))
+        self.add_reference( ref[0], ref[1], pd, fa )
+ 
 
   #
   # Add the reference value
   #
-  def add( self, key, reference, pd, fa ):
+  def add_reference( self, key, reference, pd, fa ):
     pd = [pd[0]/float(pd[1]), pd[0],pd[1]]
     fa = [fa[0]/float(fa[1]), fa[0],fa[1]]
     MSG_INFO( self, '%s | %s(pd=%1.2f, fa=%1.2f, sp=%1.2f)', key, reference, pd[0]*100, fa[0]*100, sp_func(pd[0],fa[0])*100 )
