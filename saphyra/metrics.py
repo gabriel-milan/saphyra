@@ -2,9 +2,14 @@
 __all__ = [
   "auc",
   "f1_score",
+  "sp_metric",
+  "pd_metric",
+  "fa_metric",
   "sp",
   "pd",
-  "fa"
+  "fa",
+
+
 ]
 
 import numpy as np 
@@ -74,3 +79,41 @@ class fa(AUC):
     sp = K.sqrt(  K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
     knee = K.argmax(sp)
     return fa[knee]
+
+
+
+
+
+sp_metric = sp(num_thresholds= 1000,
+               curve="ROC",
+               summation_method="interpolation",
+               name=None,
+               dtype=None,
+               thresholds=None,
+               multi_label=False,
+               label_weights=None,)
+
+pd_metric = pd(num_thresholds=1000,
+               curve="ROC",
+               summation_method="interpolation",
+               name=None,
+               dtype=None,
+               thresholds=None,
+               multi_label=False,
+               label_weights=None,)
+
+fa_metric = fa(num_thresholds=1000,
+               curve="ROC",
+               summation_method="interpolation",
+               name=None,
+               dtype=None,
+               thresholds=None,
+               multi_label=False,
+               label_weights=None,)
+
+
+
+
+
+
+

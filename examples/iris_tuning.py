@@ -34,16 +34,7 @@ model.get_layer('dense1').trainable=False
 from saphyra.decorators import Summary
 decorators = [Summary()]
 
-from saphyra.metrics import sp
-sp = sp(num_thresholds=1000,
-        curve="ROC",
-        summation_method="interpolation",
-        name=None,
-        dtype=None,
-        thresholds=None,
-        )
-
-
+from saphyra.metrics import sp_metric, pd_metric, fa_metric
 from tensorflow.keras.callbacks import EarlyStopping
 stop = EarlyStopping(monitor='val_sp', mode='max', verbose=1, patience=25, restore_best_weights=True)
 
@@ -61,7 +52,7 @@ from saphyra.applications import BinaryClassificationJob
 job = BinaryClassificationJob(  PatternGenerator( "", getPatterns ),
                                 StratifiedKFold(n_splits=10, random_state=512, shuffle=True),
                                 loss              = 'binary_crossentropy',
-                                metrics           = ['accuracy', sp],
+                                metrics           = ['accuracy', sp_metric, pd_metric, fa_metric],
                                 callbacks         = [stop],
                                 epochs            = 50,
                                 class_weight      = True,

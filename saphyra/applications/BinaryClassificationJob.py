@@ -81,7 +81,9 @@ class BinaryClassificationJob( Logger ):
 
 
     # Build the array of models
-    self.__trained_models = [[[ None for ___ in self.inits] for __ in self.sorts] for _ in self.__models]
+    # Create a new model but with different weights
+    self.__trained_models = [[[ [clone_model(model), {}] for ___ in self.inits] for __ in self.sorts] for model in self.__models]
+
 
 
 
@@ -94,7 +96,10 @@ class BinaryClassificationJob( Logger ):
 
   @sorts.setter
   def sorts( self, s):
-    self.__sorts = s
+    if type(s) is int:
+      self.__sorts = range(s)
+    else:
+      self.__sorts = s
 
 
   #
@@ -149,8 +154,10 @@ class BinaryClassificationJob( Logger ):
           self.__context.setHandler( "valData" , (x_val, y_val)       )
           self.__context.setHandler( "trnData" , (x_train, y_train)   )
 
-          # Create a new model but with different weights
-          model_for_this_init = clone_model(model)
+
+          # get the model "ptr" for this sort, init and model index
+          model_for_this_init = self.__trained_models[imodel][isort][init][0] # get only the model
+  
 
           try:
             model_for_this_init.compile( self.optimizer,
@@ -223,8 +230,8 @@ class BinaryClassificationJob( Logger ):
           if self.__outputfile:
             self.__tunedData.attach_ctx( self.__context )
 
-
-          self.__trained_models[imodel][isort][init] = (model_for_this_init, history)
+          
+          self.__trained_models[imodel][isort][init][1] = history
 
           # Clear everything for the next init
           K.clear_session()

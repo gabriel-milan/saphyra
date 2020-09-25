@@ -160,14 +160,6 @@ from saphyra.decorators import Summary
 decorators = [Summary(), correction]
 
 
-from saphyra.metrics import sp
-sp = sp(num_thresholds=1000,
-        curve="ROC",
-        summation_method="interpolation",
-        name=None,
-        dtype=None,
-        thresholds=None,
-        )
 
 
 from tensorflow.keras.callbacks import EarlyStopping
@@ -182,23 +174,24 @@ tensorboard = tf.keras.callbacks.TensorBoard(logdir, histogram_freq=1)
 
 
 from saphyra import PatternGenerator
+from saphyra.metrics import sp_metric, pd_metric, fa_metric
 from sklearn.model_selection import StratifiedKFold
 from saphyra.applications import BinaryClassificationJob
+
 
 job = BinaryClassificationJob(  PatternGenerator( args.dataFile, getPatterns ),
                                 StratifiedKFold(n_splits=10, random_state=512, shuffle=True),
                                 loss              = 'binary_crossentropy',
-                                metrics           = ['accuracy', sp],
+                                metrics           = ['accuracy', sp_metric, pd_metric, fa_metric],
                                 callbacks         = [stop, tensorboard],
-                                epochs            = 2,
+                                epochs            = 100,
                                 class_weight      = True,
-                                sorts             = [0],
+                                sorts             = 1,
                                 inits             = 1,
                                 models            = [model],
                                 )
 
 job.decorators += decorators
-
 
 # Run it!
 job.run()
