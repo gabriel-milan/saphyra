@@ -80,7 +80,7 @@ class create_configuration_jobs( Logger ):
                 'Creating job config with sort (%d to %d) and %d inits and model Index %d to %d', 
                 sort_list[0], sort_list[-1], len(init_list), model_idx_list[0], model_idx_list[-1] )
 
-      from saphyra.readers.versions import Job_v1
+      from saphyra.core.readers.versions import Job_v1
       job = Job_v1()
       # to be user by the database table
       job.setId( nJobs )
