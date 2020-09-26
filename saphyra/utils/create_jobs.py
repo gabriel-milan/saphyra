@@ -70,7 +70,6 @@ class create_configuration_jobs( Logger ):
                                       nInitsPerJob, 
                                       nInits)
 
-
     nJobs = 0 
     for (model_idx_list, sort_list, init_list) in product(modelJobsWindowList,
                                                           sortJobsWindowList, 

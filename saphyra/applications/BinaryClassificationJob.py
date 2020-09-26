@@ -46,7 +46,7 @@ class BinaryClassificationJob( Logger ):
     if job_auto_config:
       if type(job_auto_config) is str:
         MSG_INFO( self, 'Reading job configuration from: %s', job_auto_config )
-        from saphyra.readers import JobReader
+        from saphyra.core.readers import JobReader
         job = JobReader().load( job_auto_config )
       else:
         job = job_auto_config
@@ -54,7 +54,7 @@ class BinaryClassificationJob( Logger ):
       self.sorts = job.getSorts()
       self.inits = job.getInits()
       self.__models, self.__id_models = job.getModels()
-      self._jobId = job.id()
+      self.__jobId = job.id()
 
 
     # get model and tag from model file or lists
@@ -66,7 +66,7 @@ class BinaryClassificationJob( Logger ):
 
 
 
-    self.__outputfile = retrieve_kw( kw, 'outputfile' , None           )
+    self.__outputfile = retrieve_kw( kw, 'outputFile' , None           )
 
     if self.__outputfile:
       from saphyra.core.readers.versions import TunedData_v1
@@ -78,7 +78,6 @@ class BinaryClassificationJob( Logger ):
     from saphyra import Context
     self.__context = Context()
     self.__index_from_cv = None
-
 
     # Build the array of models
     # Create a new model but with different weights
@@ -144,7 +143,7 @@ class BinaryClassificationJob( Logger ):
      
       for imodel, model in enumerate( self.__models ):
 
-        for init in self.inits:
+        for iinit, init in enumerate(self.inits):
 
           # force the context is empty for each training
           self.__context.clear()
@@ -154,9 +153,8 @@ class BinaryClassificationJob( Logger ):
           self.__context.setHandler( "valData" , (x_val, y_val)       )
           self.__context.setHandler( "trnData" , (x_train, y_train)   )
 
-
           # get the model "ptr" for this sort, init and model index
-          model_for_this_init = self.__trained_models[imodel][isort][init][0] # get only the model
+          model_for_this_init = self.__trained_models[imodel][isort][iinit][0] # get only the model
   
 
           try:
