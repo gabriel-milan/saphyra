@@ -1,6 +1,6 @@
 
 
-__all__ = ['BinaryClassificationJob']
+__all__ = ['BinaryClassificationJob', 'lock_as_completed_job', 'lock_as_failed_job']
 
 from Gaugi.messenger import Logger
 from Gaugi.messenger.macros import *
@@ -14,6 +14,17 @@ from datetime import datetime
 from copy import deepcopy
 import numpy as np
 import time
+
+
+def lock_as_completed_job(output):
+  with open(output+'/.complete','w') as f:
+    f.write('complete')
+
+def lock_as_failed_job(output):
+  with open(output+'/.failed','w') as f:
+    f.write('failed')
+
+
 
 
 
@@ -137,10 +148,10 @@ class BinaryClassificationJob( Logger ):
       _, n_evt_per_class = np.unique(y_train, return_counts=True)
       batch_size = (self.batch_size if np.min(n_evt_per_class) > self.batch_size
                      else np.min(n_evt_per_class))
-      
-      
+
+
       MSG_INFO( self, "Using %d as batch size.", batch_size)
-     
+
       for imodel, model in enumerate( self.__models ):
 
         for iinit, init in enumerate(self.inits):
@@ -155,7 +166,7 @@ class BinaryClassificationJob( Logger ):
 
           # get the model "ptr" for this sort, init and model index
           model_for_this_init = self.__trained_models[imodel][isort][iinit][0] # get only the model
-  
+
 
           try:
             model_for_this_init.compile( self.optimizer,
@@ -208,7 +219,7 @@ class BinaryClassificationJob( Logger ):
                               shuffle         = True).history
 
           end = datetime.now()
-          
+
           self.__context.setHandler("time" , end-start)
 
 
@@ -228,7 +239,7 @@ class BinaryClassificationJob( Logger ):
           if self.__outputfile:
             self.__tunedData.attach_ctx( self.__context )
 
-          
+
           self.__trained_models[imodel][isort][init][1] = history
 
           # Clear everything for the next init

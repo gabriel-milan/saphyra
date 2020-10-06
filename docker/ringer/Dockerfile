@@ -10,7 +10,7 @@ ENV TERM screen
 USER root
 SHELL [ "/bin/bash", "-c" ]
 
+RUN cd /opt && git clone https://github.com/jodafons/orchestra.git && cd orchestra && pip3 install .
 COPY run_tuning.py /run_tuning.py
-RUN chmod 774 /run_tuning.py
 
-ENTRYPOINT ["/run_tuning.py"]
+ENTRYPOINT ["maestro.py"]

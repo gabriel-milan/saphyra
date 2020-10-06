@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 
-
-from Gaugi.messenger import LoggingLevel, Logger
 import argparse
 import sys,os
 
 
-mainLogger = Logger.getModuleLogger("job")
 parser = argparse.ArgumentParser(description = '', add_help = False)
 parser = argparse.ArgumentParser()
 
@@ -43,20 +40,19 @@ if len(sys.argv)==1:
 
 args = parser.parse_args()
 
-volume = args.volume
+
+def run(command):
+  os.system(command)
 
 
-commands = open(volume+'/commands.sh', 'w')
-# Update all pip packages
-# commands.write('source /setup_envs.sh\n')
-# Download the ringer tuning repository
-commands.write("cd %s && git clone https://github.com/jodafons/ringer.git && cd ringer && git checkout %s && cd versions/%s\n"%(voume, args.branch,args.tag))
-commands.write("python job_tuning.py -d %s -o %s -c %s -r %s\n"%(args.dataFile, volume, args.configFile, args.refFile) )
-commands.close()
-
-os.system('source %s/commands.sh'%volume)
-os.system( 'rm -rf %s/ringer'%volume)
-os.system( 'rm -rf %s/command.sh'%volume)
+# we presume that this will be executed inside of the volume path given by the orchestra
+run("cd %s"%args.volume)
+# update saphyra
+run("pip3 install --upgrade saphyra")
+run("git clone https://github.com/jodafons/ringer.git && cd ringer && git checkout %s"%(args.branch))
+run("cd %s"%args.volume)
+run("python ringer/versions/%s/job_tuning.py -d %s -o %s -c %s -r %s"%(args.dataFile, args.volume, args.configFile, args.refFile) )
+run( 'rm -rf %s/ringer'%args.volume)
 
 
 
