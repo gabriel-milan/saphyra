@@ -42,18 +42,26 @@ args = parser.parse_args()
 
 
 def run(command):
-  os.system(command)
+  return True if os.system(command) == 0 else False
 
 
 # we presume that this will be executed inside of the volume path given by the orchestra
-run("cd %s"%args.volume)
-# update saphyra
-run("pip3 install --upgrade saphyra")
-run("git clone https://github.com/jodafons/ringer.git && cd ringer && git checkout %s"%(args.branch))
-run("cd %s"%args.volume)
-run("python ringer/versions/%s/job_tuning.py -d %s -o %s -c %s -r %s"%(args.dataFile, args.volume, args.configFile, args.refFile) )
-run( 'rm -rf %s/ringer'%args.volume)
+if run("cd %s"%args.volume):
 
+  # remove everything inside of the volume
+  run("rm -rf *")
+
+  # update saphyra
+  run("pip install --upgrade saphyra")
+  run("git clone https://github.com/jodafons/ringer.git && cd ringer && git checkout %s"%(args.branch))
+  run("cd ..")
+  run("python ringer/versions/%s/job_tuning.py -d %s -v %s -c %s -r %s"%(args.tag, args.dataFile, args.volume, args.configFile, args.refFile) )
+  run('rm -rf ringer')
+
+  sys.exit(0)
+else:
+  print('The volume (%s) path does not exist.', args.volume)
+  sys.exit(1)
 
 
 
