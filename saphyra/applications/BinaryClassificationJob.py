@@ -201,10 +201,11 @@ class BinaryClassificationJob( Logger ):
           start = datetime.now()
 
           if self.__class_weight:
-            weight = compute_class_weight('balanced',np.unique(y_train),y_train)
-            weight = {i : weight[i] for i in np.unique(y_train)}
+            classes = np.unique(y_train)
+            weights = compute_class_weight('balanced',classes,y_train)
+            class_weights = {cl : weights[i] for idx, cl in enumerate(classes)}
           else:
-            weight = None
+            class_weights = None
 
           # Training
           history = model_for_this_init.fit(x_train, y_train,
@@ -215,7 +216,7 @@ class BinaryClassificationJob( Logger ):
                               # copy protection to avoid the interruption or interference
                               # in the next training (e.g: early stop)
                               callbacks       = callbacks,
-                              class_weight    = weight,
+                              class_weight    = class_weights,
                               shuffle         = True).history
 
           end = datetime.now()
