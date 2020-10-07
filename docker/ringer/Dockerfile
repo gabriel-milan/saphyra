@@ -10,6 +10,7 @@ ENV TERM screen
 USER root
 SHELL [ "/bin/bash", "-c" ]
 
+RUN pip3 install --upgrade saphyra
 RUN cd /opt && git clone https://github.com/jodafons/orchestra.git && cd orchestra && pip3 install .
 COPY run_tuning.py /run_tuning.py
 
