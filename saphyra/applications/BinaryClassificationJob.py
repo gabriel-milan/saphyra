@@ -203,7 +203,7 @@ class BinaryClassificationJob( Logger ):
           if self.__class_weight:
             classes = np.unique(y_train)
             weights = compute_class_weight('balanced',classes,y_train)
-            class_weights = {cl : weights[i] for idx, cl in enumerate(classes)}
+            class_weights = {cl : weights[idx] for idx, cl in enumerate(classes)}
           else:
             class_weights = None
 
