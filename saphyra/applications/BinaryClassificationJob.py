@@ -162,7 +162,7 @@ class BinaryClassificationJob( Logger ):
           self.__context.setHandler( "trnData" , (x_train, y_train)   )
 
           # get the model "ptr" for this sort, init and model index
-          model_for_this_init = model_clone(model) # get only the model
+          model_for_this_init = clone_model(model) # get only the model
 
 
           try:
