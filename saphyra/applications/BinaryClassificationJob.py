@@ -90,9 +90,6 @@ class BinaryClassificationJob( Logger ):
     self.__context = Context()
     self.__index_from_cv = None
 
-    # Build the array of models
-    # Create a new model but with different weights
-    self.__trained_models = [[[ [clone_model(model), {}] for ___ in self.inits] for __ in self.sorts] for model in self.__models]
 
 
 
@@ -165,7 +162,7 @@ class BinaryClassificationJob( Logger ):
           self.__context.setHandler( "trnData" , (x_train, y_train)   )
 
           # get the model "ptr" for this sort, init and model index
-          model_for_this_init = self.__trained_models[imodel][isort][iinit][0] # get only the model
+          model_for_this_init = model_clone(model) # get only the model
 
 
           try:
@@ -241,8 +238,6 @@ class BinaryClassificationJob( Logger ):
             self.__tunedData.attach_ctx( self.__context )
 
 
-          self.__trained_models[imodel][isort][init][1] = history
-
           # Clear everything for the next init
           K.clear_session()
 
@@ -271,14 +266,5 @@ class BinaryClassificationJob( Logger ):
     # If the index is not set, you muat run the cross validation Kfold to get the index
     # this generator must be implemented by the user
     return generator(crossval, sort)
-
-
-  #
-  # Get the trained model
-  #
-  def get_model( self, model, sort, init ):
-    return self.__trained_models[model][sort][init]
-
-
 
 
