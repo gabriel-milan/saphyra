@@ -91,7 +91,7 @@ class BinaryClassificationJob( Logger ):
     self.__index_from_cv = None
 
 
-
+    self.__models = []
 
 
   #
@@ -242,6 +242,8 @@ class BinaryClassificationJob( Logger ):
           K.clear_session()
 
 
+          self.__models.append( (model_for_this_init, history) )
+
       # You must clean everythin before reopen the dataset
       self.__context.clear()
       # Clear the keras once again just to be sure
@@ -266,5 +268,10 @@ class BinaryClassificationJob( Logger ):
     # If the index is not set, you muat run the cross validation Kfold to get the index
     # this generator must be implemented by the user
     return generator(crossval, sort)
+
+
+
+  def getAllModels(self):
+    return self.__models
 
 
