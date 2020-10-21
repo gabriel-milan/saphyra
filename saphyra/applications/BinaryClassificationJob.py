@@ -91,7 +91,7 @@ class BinaryClassificationJob( Logger ):
     self.__index_from_cv = None
 
 
-    self.__models = []
+    self.__trained_models = []
 
 
   #
@@ -242,7 +242,7 @@ class BinaryClassificationJob( Logger ):
           K.clear_session()
 
 
-          self.__models.append( (model_for_this_init, history) )
+          self.__trained_models.append( (model_for_this_init, history) )
 
       # You must clean everythin before reopen the dataset
       self.__context.clear()
@@ -272,6 +272,6 @@ class BinaryClassificationJob( Logger ):
 
 
   def getAllModels(self):
-    return self.__models
+    return self.__trained_models
 
 
