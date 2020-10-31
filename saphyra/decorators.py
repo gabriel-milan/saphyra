@@ -40,7 +40,6 @@ class Summary( Logger ):
     x_train, y_train = context.getHandler("trnData" )
     x_val, y_val     = context.getHandler("valData" )
     model            = context.getHandler("model"    )
-    history          = context.getHandler("history")
 
 
     # Get the number of events for each set (train/val). Can be used to approx the number of
@@ -59,6 +58,8 @@ class Summary( Logger ):
     # get vectors for operation mode (train+val)
     y_pred_operation = np.concatenate( (y_pred, y_pred_val), axis=0)
     y_operation = np.concatenate((y_train,y_val), axis=0)
+
+    d['rocs'] = {}
 
 
     # No threshold is needed
@@ -82,6 +83,11 @@ class Summary( Logger ):
     knee = np.argmax(sp)
     threshold = thresholds[knee]
 
+
+    d['rocs']['roc'] = (pd, fa)
+    d['rocs']['predictions'] = (y_pred, y_train)
+
+
     MSG_INFO( self, "Train samples     : Prob. det (%1.4f), False Alarm (%1.4f), SP (%1.4f), AUC (%1.4f) and MSE (%1.4f)",
         pd[knee], fa[knee], sp[knee], d['auc'], d['mse'])
 
@@ -89,13 +95,16 @@ class Summary( Logger ):
     d['max_sp_pd'] = ( pd[knee], int(pd[knee]*sgn_total), sgn_total)
     d['max_sp_fa'] = ( fa[knee], int(fa[knee]*bkg_total), bkg_total)
     d['max_sp']    = sp[knee]
-    d['acc']              = accuracy_score(y_train,y_pred>threshold)
+    d['acc']       = accuracy_score(y_train,y_pred>threshold)
 
     # Validation
     fa, pd, thresholds = roc_curve(y_val, y_pred_val)
     sp = np.sqrt(  np.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
     knee = np.argmax(sp)
     threshold = thresholds[knee]
+
+    d['rocs']['roc_val'] = (pd, fa)
+    d['rocs']['predictions_val'] = (y_pred_val, y_val)
 
     MSG_INFO( self, "Validation Samples: Prob. det (%1.4f), False Alarm (%1.4f), SP (%1.4f), AUC (%1.4f) and MSE (%1.4f)",
         pd[knee], fa[knee], sp[knee], d['auc_val'], d['mse_val'])
@@ -112,6 +121,10 @@ class Summary( Logger ):
     knee = np.argmax(sp)
     threshold = thresholds[knee]
 
+    d['rocs']['roc_op'] = (pd, fa)
+    # We dont need to attach y_op and y_pred_op since the user can concatenate train and val to get this. Just to save storage.
+    #d['rocs']['predictions_op'] = (y_pred_operation, y_operations)
+    
     MSG_INFO( self, "Operation Samples : Prob. det (%1.4f), False Alarm (%1.4f), SP (%1.4f), AUC (%1.4f) and MSE (%1.4f)",
         pd[knee], fa[knee], sp[knee], d['auc_val'], d['mse_val'])
 

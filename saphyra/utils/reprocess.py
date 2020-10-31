@@ -1,14 +1,15 @@
 
 
-__all__ = ["decorate"]
+__all__ = ["reprocess"]
 
-from Gaugi import Logger, StatusCode, expandFolders
+from Gaugi import Logger, StatusCode, expandFolders, mkdir_p, load, save
 from Gaugi.messenger.macros import *
 
+from pprint import pprint
 
 from saphyra.layers.RpLayer import RpLayer
 from saphyra.core.readers.versions import TunedData_v1
-from saphyra import Context
+from saphyra.core import Context
 
 
 # Just to remove the keras dependence
@@ -17,7 +18,7 @@ model_from_json = tf.keras.models.model_from_json
 import json
 
 
-class decorate_tuned_files( Logger ):
+class Reprocess( Logger ):
 
   def __init__(self):
 
@@ -34,6 +35,10 @@ class decorate_tuned_files( Logger ):
 
     files =  expandFolders(files) 
 
+    mkdir_p( outputfile )
+
+    pprint(files)
+
     for idx, file in enumerate(files):
     
       MSG_INFO( self, "Opening file %s...", file )
@@ -41,7 +46,7 @@ class decorate_tuned_files( Logger ):
 
       tunedData = TunedData_v1()
 
-      for jdx, tuned in enumerate(raw['tunedFiles']):
+      for jdx, tuned in enumerate(raw['tunedData']):
 
         # force the context is empty for each iteration
         self.__context.clear()
@@ -77,7 +82,7 @@ class decorate_tuned_files( Logger ):
 
 
         for tool in decorators:
-          MSG_INFO( self, "Executing the pos processor %s", tool.name() )
+          #MSG_INFO( self, "Executing the pos processor %s", tool.name() )
           tool.decorate( history, self.__context )
 
         tunedData.attach_ctx( self.__context )
@@ -104,5 +109,5 @@ class decorate_tuned_files( Logger ):
 
 
 
-decorate = decorate_tuned_files()
+reprocess = Reprocess()
 

@@ -41,31 +41,7 @@ def test_tuning():
   from saphyra.decorators import Summary
   decorators = [Summary()]
   
-  from saphyra.metrics import sp, pd, fa
-  sp = sp(num_thresholds=1000,
-          curve="ROC",
-          summation_method="interpolation",
-          name=None,
-          dtype=None,
-          thresholds=None,
-          )
-  
-  
-  pd = pd(num_thresholds=1000,
-          curve="ROC",
-          summation_method="interpolation",
-          name=None,
-          dtype=None,
-          thresholds=None,
-          )
-
-  fa = fa(num_thresholds=1000,
-          curve="ROC",
-          summation_method="interpolation",
-          name=None,
-          dtype=None,
-          thresholds=None,
-          )
+  from saphyra.metrics import sp_metric, pd_metric, fa_metric
   
 
   from tensorflow.keras.callbacks import EarlyStopping
@@ -85,9 +61,9 @@ def test_tuning():
   job = BinaryClassificationJob(  PatternGenerator( "", getPatterns ),
                                   StratifiedKFold(n_splits=10, random_state=512, shuffle=True),
                                   loss              = 'binary_crossentropy',
-                                  metrics           = ['accuracy', sp, pd, fa],
+                                  metrics           = ['accuracy', sp_metric],
                                   callbacks         = [stop],
-                                  epochs            = 50,
+                                  epochs            = 100000,
                                   class_weight      = True,
                                   sorts             = [0],
                                   inits             = 1,

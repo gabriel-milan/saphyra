@@ -11,18 +11,22 @@ import collections, os, glob, json, copy, re
 import numpy as np
 import pandas as pd
 
+from saphyra.layers.RpLayer import RpLayer
+# Just to remove the keras dependence
+import tensorflow as tf
+model_from_json = tf.keras.models.model_from_json
+import json
 
 
 class crossval_table( Logger ):
 
-    def __init__(self, config_dict): 
+    def __init__(self, config_dict ): 
         
         Logger.__init__(self)
         self.__table = None
         # Check wanted key type 
         self.__config_dict = collections.OrderedDict(config_dict) if type(config_dict) is dict else config_dict
       
-
 
     #
     # Fill the main dataframe with values from the tuning files and convert to pandas dataframe
@@ -42,7 +46,11 @@ class crossval_table( Logger ):
                               'init'           : [],
                               'file_name'      : [],
                               'tuned_idx'      : [],
+                              'model'          : [],
+                              'target'         : [],
+                              'predictions'    : [],
                           })
+
 
         # Complete the dataframe for each varname in the config dict
         for varname in self.__config_dict.keys():
@@ -57,8 +65,12 @@ class crossval_table( Logger ):
             
             for idx, ituned in enumerate(tuned_file):
                 history = ituned['history']
+                model = model_from_json( json.dumps(ituned['sequence'], separators=(',', ':')) , custom_objects={'RpLayer':RpLayer} )
+                model.set_weights( ituned['weights'] )
+                
                 # get the basic from model
                 dataframe['train_tag'].append(tag)
+                dataframe['model'].append(model)
                 dataframe['model_idx'].append(ituned['imodel'])
                 dataframe['sort'].append(ituned['sort'])
                 dataframe['init'].append(ituned['init'])
@@ -66,10 +78,20 @@ class crossval_table( Logger ):
                 dataframe['eta_bin'].append(self.get_etabin(ituned_file_name))
                 dataframe['file_name'].append(ituned_file_name)
                 dataframe['tuned_idx'].append( idx )
+
+
+                if 'decorations' in ituned.keys():
+                    dataframe['target'].append( ituned['decorations']['target'] )
+                    dataframe['predictions'].append( ituned['decorations']['predictions'] )
+                else:
+                    dataframe['target'].append( [] )
+                    dataframe['predictions'].append( [] )
+
                 # Get the value for each wanted key passed by the user in the contructor args.
                 for key, local  in self.__config_dict.items():
                     dataframe[key].append( self.__get_value( history, local ) )
         
+
         self.__table = self.__table.append( pd.DataFrame(dataframe) ) if not self.__table is None else pd.DataFrame(dataframe)
         MSG_INFO(self, 'End of fill step, a pandas DataFrame was created...')
 
@@ -348,5 +370,83 @@ class crossval_table( Logger ):
                                         TableLine(line, rounding = None)
 
 
+
+
+
+
+
+
+
+if __name__ == "__main__":
+
+    
+    #
+    # My local test to debug the cross validation table class
+    #
+
+    def create_op_dict(op):
+        d = {
+                  op+'_pd_ref'    : "reference/"+op+"_cutbased/pd_ref#0",
+                  op+'_fa_ref'    : "reference/"+op+"_cutbased/fa_ref#0",
+                  op+'_sp_ref'    : "reference/"+op+"_cutbased/sp_ref",
+                  op+'_pd_val'    : "reference/"+op+"_cutbased/pd_val#0",
+                  op+'_fa_val'    : "reference/"+op+"_cutbased/fa_val#0",
+                  op+'_sp_val'    : "reference/"+op+"_cutbased/sp_val",
+                  op+'_pd_op'     : "reference/"+op+"_cutbased/pd_op#0",
+                  op+'_fa_op'     : "reference/"+op+"_cutbased/fa_op#0",
+                  op+'_sp_op'     : "reference/"+op+"_cutbased/sp_op",
+                
+                  # Counts
+                  op+'_pd_ref_passed'    : "reference/"+op+"_cutbased/pd_ref#1",
+                  op+'_fa_ref_passed'    : "reference/"+op+"_cutbased/fa_ref#1",
+                  op+'_pd_ref_total'     : "reference/"+op+"_cutbased/pd_ref#2",
+                  op+'_fa_ref_total'     : "reference/"+op+"_cutbased/fa_ref#2",   
+                  op+'_pd_val_passed'    : "reference/"+op+"_cutbased/pd_val#1",
+                  op+'_fa_val_passed'    : "reference/"+op+"_cutbased/fa_val#1",
+                  op+'_pd_val_total'     : "reference/"+op+"_cutbased/pd_val#2",
+                  op+'_fa_val_total'     : "reference/"+op+"_cutbased/fa_val#2",  
+                  op+'_pd_op_passed'     : "reference/"+op+"_cutbased/pd_op#1",
+                  op+'_fa_op_passed'     : "reference/"+op+"_cutbased/fa_op#1",
+                  op+'_pd_op_total'      : "reference/"+op+"_cutbased/pd_op#2",
+                  op+'_fa_op_total'      : "reference/"+op+"_cutbased/fa_op#2",
+        } 
+        return d
+    
+    
+    tuned_info = collections.OrderedDict( {
+                  # validation
+                  "max_sp_val"      : 'summary/max_sp_val',
+                  "max_sp_pd_val"   : 'summary/max_sp_pd_val#0',
+                  "max_sp_fa_val"   : 'summary/max_sp_fa_val#0',
+                  # Operation
+                  "max_sp_op"       : 'summary/max_sp_op',
+                  "max_sp_pd_op"    : 'summary/max_sp_pd_op#0',
+                  "max_sp_fa_op"    : 'summary/max_sp_fa_op#0',
+                  #"loss"            : 'loss',
+                  #"val_loss"        : 'val_loss',
+                  #"accuracy"        : 'accuracy',
+                  #"val_accuracy"    : 'val_accuracy',
+                  #"max_sp_best_epoch_val": 'max_sp_best_epoch_val',
+                  } )
+    
+    tuned_info.update(create_op_dict('tight'))
+    tuned_info.update(create_op_dict('medium'))
+    tuned_info.update(create_op_dict('loose'))
+    tuned_info.update(create_op_dict('vloose'))
+    
+    
+    cv_v10 = crossval_table( tuned_info )
+    cv_v10.fill( '/Volumes/castor/tuning_data/Zee/v10/*/*/*.2.pic.gz', 'v10')
+    
+    
+    best_inits_v10 = cv_v10.filter_inits("max_sp_val")
+    best_inits_v10 = best_inits_v10.loc[(best_inits_v10.model_idx==0)]
+    best_sorts_v10 = cv_v10.filter_sorts(best_inits_v10, 'max_sp_val')
+    
+    
+    base_datapath = '/Volumes/castor/cern_data/files/Zee/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97'
+    metapath = base_datapath+'/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97_et%d_eta%d.npz'
+    
+    best_sorts_v10.head()
 
 

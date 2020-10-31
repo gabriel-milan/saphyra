@@ -11,9 +11,9 @@ __all__.extend( crossval_table.__all__ )
 from .crossval_table import *
 
 
-from . import decorate
-__all__.extend( decorate.__all__ )
-from .decorate import *
+from . import reprocess
+__all__.extend( reprocess.__all__ )
+from .reprocess import *
 
 
 
