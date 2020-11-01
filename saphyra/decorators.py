@@ -85,7 +85,7 @@ class Summary( Logger ):
 
 
     d['rocs']['roc'] = (pd, fa)
-    d['rocs']['predictions'] = (y_pred, y_train)
+    #d['rocs']['predictions'] = (y_pred, y_train)
 
 
     MSG_INFO( self, "Train samples     : Prob. det (%1.4f), False Alarm (%1.4f), SP (%1.4f), AUC (%1.4f) and MSE (%1.4f)",
@@ -104,7 +104,7 @@ class Summary( Logger ):
     threshold = thresholds[knee]
 
     d['rocs']['roc_val'] = (pd, fa)
-    d['rocs']['predictions_val'] = (y_pred_val, y_val)
+    #d['rocs']['predictions_val'] = (y_pred_val, y_val)
 
     MSG_INFO( self, "Validation Samples: Prob. det (%1.4f), False Alarm (%1.4f), SP (%1.4f), AUC (%1.4f) and MSE (%1.4f)",
         pd[knee], fa[knee], sp[knee], d['auc_val'], d['mse_val'])

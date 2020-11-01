@@ -23,76 +23,69 @@ class Reprocess( Logger ):
   def __init__(self):
 
     Logger.__init__(self)
-    self.__context = Context()
 
 
 
   #
   # run job
   #
-  def __call__( self , generator, files, outputfile, crossval, decorators):
+  def __call__( self , generator, tunedFile, outputfile, crossval, decorators):
 
 
-    files =  expandFolders(files) 
+    context = Context()
 
-    mkdir_p( outputfile )
+    MSG_INFO( self, "Opening file %s...", tunedFile )
+    raw = load(tunedFile)
 
-    pprint(files)
+    tunedData = TunedData_v1()
 
-    for idx, file in enumerate(files):
-    
-      MSG_INFO( self, "Opening file %s...", file )
-      raw = load(file)
+    for idx, tuned in enumerate(raw['tunedData']):
 
-      tunedData = TunedData_v1()
-
-      for jdx, tuned in enumerate(raw['tunedData']):
-
-        # force the context is empty for each iteration
-        self.__context.clear()
+      # force the context is empty for each iteration
+      context.clear()
 
 
-        sort = tuned['sort']
-        init = tuned['init']
-        imodel = tuned['imodel']
-        history = tuned['history']
+      sort = tuned['sort']
+      init = tuned['init']
+      imodel = tuned['imodel']
+      history = tuned['history']
 
-        # get the current kfold and train, val sets
-        x_train, x_val, y_train, y_val, index_from_cv = self.pattern_g( generator, crossval, sort )
+      # get the current kfold and train, val sets
+      x_train, x_val, y_train, y_val, index_from_cv = self.pattern_g( generator, crossval, sort )
 
-        # recover keras model
-        model = model_from_json( json.dumps(tuned['sequence'], separators=(',', ':')) )#, custom_objects={'RpLayer':RpLayer} )
-        model.set_weights( tuned['weights'] )
-
-
-        # Should not be store
-        self.__context.setHandler( "valData" , (x_val, y_val)       )
-        self.__context.setHandler( "trnData" , (x_train, y_train)   )
-        self.__context.setHandler( "index"   , index_from_cv        )
-        self.__context.setHandler( "crossval", crossval             )
+      # recover keras model
+      model = model_from_json( json.dumps(tuned['sequence'], separators=(',', ':')) )#, custom_objects={'RpLayer':RpLayer} )
+      model.set_weights( tuned['weights'] )
 
 
-        # It will be store into the file
-        self.__context.setHandler( "model"   , model         )
-        self.__context.setHandler( "sort"    , sort          )
-        self.__context.setHandler( "init"    , init          )
-        self.__context.setHandler( "imodel"  , imodel        )
-        self.__context.setHandler( "time"    , tuned['time'] )
-        self.__context.setHandler( "history" , history       )
+      # Should not be store
+      context.setHandler( "valData" , (x_val, y_val)       )
+      context.setHandler( "trnData" , (x_train, y_train)   )
+      context.setHandler( "index"   , index_from_cv        )
+      context.setHandler( "crossval", crossval             )
 
 
-        for tool in decorators:
-          #MSG_INFO( self, "Executing the pos processor %s", tool.name() )
-          tool.decorate( history, self.__context )
+      # It will be store into the file
+      context.setHandler( "model"   , model         )
+      context.setHandler( "sort"    , sort          )
+      context.setHandler( "init"    , init          )
+      context.setHandler( "imodel"  , imodel        )
+      context.setHandler( "time"    , tuned['time'] )
+      context.setHandler( "history" , history       )
 
-        tunedData.attach_ctx( self.__context )
+
+      for tool in decorators:
+        #MSG_INFO( self, "Executing the pos processor %s", tool.name() )
+        tool.decorate( history, context )
+
+      tunedData.attach_ctx( context )
 
 
-      try:
-        MSG_INFO( self, "Saving file..." )
-        tunedData.save( outputfile+'/'+ file.split('/')[-1] )
-      except Exception as e:
-        MSG_FATAL( self, "Its not possible to save the tuned data: %s" , e )
+    try:
+      MSG_INFO( self, "Saving file..." )
+      tunedData.save( outputfile+'/'+ tunedFile.split('/')[-1] )
+    except Exception as e:
+      MSG_FATAL( self, "Its not possible to save the tuned data: %s" , e )
 
 
     return StatusCode.SUCCESS
