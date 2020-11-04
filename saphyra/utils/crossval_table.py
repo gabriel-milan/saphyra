@@ -1,6 +1,6 @@
 
 
-__all__ = ['crossval_table']
+__all__ = ['crossval_table', 'get_color_fader']
 
 
 from Gaugi.tex import *
@@ -18,15 +18,38 @@ model_from_json = tf.keras.models.model_from_json
 import json
 
 
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+#import seaborn as sns
+#import mplhep as hep
+#plt.style.use(hep.style.ATLAS)
+
+
+
+def get_color_fader( c1, c2, n ):
+    def color_fader(c1,c2,mix=0): #fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
+        c1=np.array(mpl.colors.to_rgb(c1))
+        c2=np.array(mpl.colors.to_rgb(c2))
+        return mpl.colors.to_hex((1-mix)*c1 + mix*c2)
+    return [ color_fader(c1,c2, frac) for frac in np.linspace(0,1,n) ]
+
+
+
+
 class crossval_table( Logger ):
 
-    def __init__(self, config_dict ): 
+    #
+    # Constructor
+    #
+    def __init__(self, config_dict, etbins=None, etabins=None ): 
         
         Logger.__init__(self)
         self.__table = None
         # Check wanted key type 
         self.__config_dict = collections.OrderedDict(config_dict) if type(config_dict) is dict else config_dict
-      
+        self.__etbins = etbins
+        self.__etabins = etabins
+
 
     #
     # Fill the main dataframe with values from the tuning files and convert to pandas dataframe
@@ -46,9 +69,6 @@ class crossval_table( Logger ):
                               'init'           : [],
                               'file_name'      : [],
                               'tuned_idx'      : [],
-                              'model'          : [],
-                              'target'         : [],
-                              'predictions'    : [],
                           })
 
 
@@ -65,12 +85,12 @@ class crossval_table( Logger ):
             
             for idx, ituned in enumerate(tuned_file):
                 history = ituned['history']
-                model = model_from_json( json.dumps(ituned['sequence'], separators=(',', ':')) , custom_objects={'RpLayer':RpLayer} )
-                model.set_weights( ituned['weights'] )
+                #model = model_from_json( json.dumps(ituned['sequence'], separators=(',', ':')) , custom_objects={'RpLayer':RpLayer} )
+                #model.set_weights( ituned['weights'] )
                 
                 # get the basic from model
                 dataframe['train_tag'].append(tag)
-                dataframe['model'].append(model)
+                #dataframe['model'].append(model)
                 dataframe['model_idx'].append(ituned['imodel'])
                 dataframe['sort'].append(ituned['sort'])
                 dataframe['init'].append(ituned['init'])
@@ -79,14 +99,6 @@ class crossval_table( Logger ):
                 dataframe['file_name'].append(ituned_file_name)
                 dataframe['tuned_idx'].append( idx )
 
-
-                if 'decorations' in ituned.keys():
-                    dataframe['target'].append( ituned['decorations']['target'] )
-                    dataframe['predictions'].append( ituned['decorations']['predictions'] )
-                else:
-                    dataframe['target'].append( [] )
-                    dataframe['predictions'].append( [] )
-
                 # Get the value for each wanted key passed by the user in the contructor args.
                 for key, local  in self.__config_dict.items():
                     dataframe[key].append( self.__get_value( history, local ) )
@@ -94,6 +106,21 @@ class crossval_table( Logger ):
 
         self.__table = self.__table.append( pd.DataFrame(dataframe) ) if not self.__table is None else pd.DataFrame(dataframe)
         MSG_INFO(self, 'End of fill step, a pandas DataFrame was created...')
+
+  
+    #
+    # Convert the table to csv
+    #
+    def to_csv( self, output ):
+      self.__table.to_csv(output)
+
+
+    #
+    # Read the table from csv
+    #
+    def from_csv( self, input ):
+      self.__table = pd.read_csv(input)
+
 
 
     #
@@ -108,15 +135,20 @@ class crossval_table( Logger ):
         return var
 
 
-
     def get_etbin(self, job):
         return int(  re.findall(r'et[a]?[0-9]', job)[0][-1] )
-
 
 
     def get_etabin(self, job):
         return int( re.findall(r'et[a]?[0-9]',job)[1] [-1] )
 
+    
+    def get_etbin_edges(self, et_bin):
+        return (self.__etbins[et_bin], self.__etbins[et_bin+1]) 
+ 
+
+    def get_etabin_edges(self, eta_bin):
+        return (self.__etabins[eta_bin], self.__etabins[eta_bin+1]) 
 
 
     #
@@ -124,7 +156,6 @@ class crossval_table( Logger ):
     #
     def table(self):
         return self.__table
-
 
 
     #
@@ -176,6 +207,7 @@ class crossval_table( Logger ):
         return pd.DataFrame(dataframe)
 
 
+
     #
     # Get tge cross val integrated table from best inits
     #
@@ -214,16 +246,118 @@ class crossval_table( Logger ):
 
 
 
+		#
+		# Plot the training curves for all sorts.
+		#
+    def plot_training_curves( self, best_inits, display=False ):
+			
+        def plot_training_curves_for_each_sort(table, et_bin, eta_bin, output, display=False):
+            table = table.loc[(table.et_bin==et_bin) & (table.eta_bin==eta_bin)] 
+            nsorts = len(table.sort.unique())
+            fig, ax = plt.subplots(nsorts,2, figsize=(15,20))
+            fig.suptitle(r'Monitoring Train Plot - Et = %d, Eta = %d'%(et_bin,eta_bin), fontsize=15)
+            for idx, sort in enumerate(table.sort.unique()):
+                current_table = table.loc[table.sort==sort]
+                path=current_table.file_name.values[0]
+                history = load(path)['tunedData'][current_table.model_idx.values[0]]['history']
+                best_epoch = history['max_sp_best_epoch_val'][-1]
+                # Make the plot here
+                ax[idx, 0].set_xlabel('Epochs')
+                ax[idx, 0].set_ylabel('Loss')
+                ax[idx, 0].plot(history['loss'], c='b', label='Train Step')
+                ax[idx, 0].plot(history['val_loss'], c='r', label='Validation Step') 
+                ax[idx, 0].axvline(x=best_epoch, c='k', label='Best epoch')
+                ax[idx, 0].legend()
+                ax[idx, 0].grid()
+                ax[idx, 1].set_xlabel('Epochs')
+                ax[idx, 1].set_ylabel('SP')
+                ax[idx, 1].plot(history['max_sp_val'], c='r', label='Validation Step') 
+                ax[idx, 1].axvline(x=best_epoch, c='k', label='Best epoch')
+                ax[idx, 1].legend()
+                ax[idx, 1].grid()
+            
+            plt.savefig(output)
+            if display:
+                plt.show()
+            else:
+                plt.close(fig)
+        
+        tag = best_inits.train_tag.unique()[0]
+        print(tag)
+        for et_bin in best_inits.et_bin.unique():
+            for eta_bin in best_inits.eta_bin.unique():
+                plot_training_curves_for_each_sort(best_inits, et_bin, eta_bin, 
+                    'train_evolution_best_config_et%d_eta%d_%s.pdf'%(et_bin,eta_bin,tag), display)
 
+
+
+		#
+		# Plot the training curves for all sorts.
+		#
+    def plot_roc_curves( self, best_sorts, tags, legends, output, display=False, colors=None, points=None, et_bin=None, eta_bin=None, 
+                         xmin=-0.02, xmax=0.3, ymin=0.8, ymax=1.02, fontsize=18):
+
+
+        def plot_roc_curves_for_each_bin(ax, table, colors, xmin=-0.02, xmax=0.3, ymin=0.8, ymax=1.02, fontsize=18):
+
+          ax.set_xlabel('Fake Probability [%]',fontsize=fontsize)
+          ax.set_ylabel('Detection Probability [%]',fontsize=fontsize)
+          ax.set_title(r'Roc curve (et = %d, eta = %d)'%(table.et_bin.values[0], table.eta_bin.values[0]),fontsize=fontsize)
+ 
+          for idx, tag in enumerate(tags):
+              current_table = table.loc[(table.train_tag==tag)] 
+              path=current_table.file_name.values[0]
+              history = load(path)['tunedData'][current_table.model_idx.values[0]]['history']
+              pd, fa = history['summary']['rocs']['roc_op']
+
+              ax.plot( fa, pd, color=colors[idx], linewidth=2, label=tag)
+              ax.set_ylim(ymin,ymax)
+              ax.set_xlim(xmin,xmax)
+
+          ax.legend(fontsize=fontsize)
+          ax.grid()
+           
+       
+        if et_bin!=None and eta_bin!=None:
+            fig, ax = plt.subplots(1,1, figsize=(15,15))
+            fig.suptitle(r'Operation ROCs', fontsize=15)
+            table_for_this_bin = best_sorts.loc[(best_sorts.et_bin==et_bin) & (best_sorts.eta_bin==eta_bin)]
+            plot_roc_curves_for_each_bin( ax, table_for_this_bin, colors, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fontsize=fontsize)
+            plt.savefig(output)
+            if display:
+                plt.show()
+            else:
+                plt.close(fig)
+ 
+        else:
+
+            n_et_bins = len(best_sorts.et_bin.unique())
+            n_eta_bins = len(best_sorts.eta_bin.unique())
+            fig, ax = plt.subplots(n_et_bins,n_eta_bins, figsize=(35,35))
+            fig.suptitle(r'Operation ROCs', fontsize=15)
+
+            for et_bin in best_sorts.et_bin.unique():
+                for eta_bin in best_sorts.eta_bin.unique():
+                    table_for_this_bin = best_sorts.loc[(best_sorts.et_bin==et_bin) & (best_sorts.eta_bin==eta_bin)]
+                    plot_roc_curves_for_each_bin( ax[et_bin][eta_bin], table_for_this_bin, colors, xmin=xmin, xmax=xmax, 
+                                                  ymin=ymin, ymax=ymax, fontsize=fontsize)
+
+            plt.savefig(output)
+            if display:
+                plt.show()
+            else:
+                plt.close(fig)
+ 
 
 
 
     #
     # Create the beamer table file
     #
-    def dump_beamer_table( self, best_inits, etbins, etabins, operation_points, output, tags=None, title='' ):
+    def dump_beamer_table( self, best_inits, operation_points, output, tags=None, title='' ):
        
         cv_table = self.describe( best_inits )
+
 
         # Prepare the config dict using the operation points and some default keys
         config_dict = {}
@@ -240,16 +374,16 @@ class crossval_table( Logger ):
           
         # Create Latex Et bins
         etbins_str = []; etabins_str = []
-        for etBinIdx in range(len(etbins)-1):
-            etbin = (etbins[etBinIdx], etbins[etBinIdx+1])
+        for etBinIdx in range(len(self.__etbins)-1):
+            etbin = (self.__etbins[etBinIdx], self.__etbins[etBinIdx+1])
             if etbin[1] > 100 :
                 etbins_str.append( r'$E_{T}\text{[GeV]} > %d$' % etbin[0])
             else:
                 etbins_str.append(  r'$%d < E_{T} \text{[Gev]}<%d$'%etbin )
       
         # Create Latex eta bins
-        for etaBinIdx in range( len(etabins)-1 ):
-            etabin = (etabins[etaBinIdx], etabins[etaBinIdx+1])
+        for etaBinIdx in range( len(self.__etabins)-1 ):
+            etabin = (self.__etabins[etaBinIdx], self.__etabins[etaBinIdx+1])
             etabins_str.append( r'$%.2f<\eta<%.2f$'%etabin )
       
         # Default colors
@@ -265,8 +399,8 @@ class crossval_table( Logger ):
             summary[operation_point] = {}
             for tag in train_tags:
                 summary[operation_point][tag] = [ [ {} for __ in range(len(etabins)-1) ] for _ in range(len(etbins)-1)]
-                for etBinIdx in range(len(etbins)-1):
-                    for etaBinIdx in range(len(etabins)-1):
+                for etBinIdx in range(len(self.__etbins)-1):
+                    for etaBinIdx in range(len(self.__etabins)-1):
                         for key in config_dict[operation_point]:
                             summary[operation_point][tag][etBinIdx][etaBinIdx][key] = 0.0
       
@@ -301,10 +435,10 @@ class crossval_table( Logger ):
                                       for _ in etbins_str]), _contextManaged = False ) ]
                 lines1 += [ HLine(_contextManaged = False) ]
       
-                for etaBinIdx in range(len(etabins) - 1):
+                for etaBinIdx in range(len(self.__etabins) - 1):
                     for idx, tag in enumerate( train_tags ):
                         cv_values=[]; ref_values=[]
-                        for etBinIdx in range(len(etbins) - 1):
+                        for etBinIdx in range(len(self.__etbins) - 1):
                             d = summary[operation_point][tag][etBinIdx][etaBinIdx]
                             sp = d['sp_val_mean']*100; sp_std = d['sp_val_std']*100
                             pd = d['pd_val_mean']*100; pd_std = d['pd_val_std']*100
@@ -374,6 +508,113 @@ class crossval_table( Logger ):
 
 
 
+    #
+    # Load all keras models given the best sort table
+    #
+    def get_best_models( self, best_sorts , remove_last=True, with_history=False):
+        
+        from tensorflow.keras.models import Model, model_from_json
+        import json
+        
+        models = []
+        for et_bin in range(len(self.__etbins)-1):
+            for eta_bin in range(len(self.__etabins)-1):
+                d_tuned = {}
+                best = best_sorts.loc[(best_sorts.et_bin==et_bin) & (best_sorts.eta_bin==eta_bin)]
+                tuned = load(best.file_name.values[0])['tunedData'][best.model_idx.values[0]]
+                model = model_from_json( json.dumps(tuned['sequence'], separators=(',', ':')) ) #custom_objects={'RpLayer':RpLayer} )
+                model.set_weights( tuned['weights'] )
+                new_model = Model(model.inputs, model.layers[-2].output) if remove_last else model
+                #new_model.summary() 
+                d_tuned['model']    = new_model
+                d_tuned['etBin']    = [self.__etbins[et_bin], self.__etbins[et_bin+1]]
+                d_tuned['etaBin']   = [self.__etabins[eta_bin], self.__etabins[eta_bin+1]]
+                d_tuned['etBinIdx'] = et_bin
+                d_tuned['etaBinIdx']= eta_bin
+                d_tuned['history']  = tuned['history']
+                models.append(d_tuned)
+        return models
+
+
+
+    def convert_to_onnx( self, models, name, version, signature, model_output_format , operation, output):
+    
+    
+        import onnx
+        import keras2onnx
+        from ROOT import TEnv
+        
+        model_etmin_vec = []
+        model_etmax_vec = []
+        model_etamin_vec = []
+        model_etamax_vec = []
+        model_paths = []
+        
+        slopes = []
+        offsets = []
+        
+        # serialize all models
+        for model in models:
+        
+            model_etmin_vec.append( model['etBin'][0] )
+            model_etmax_vec.append( model['etBin'][1] )
+            model_etamin_vec.append( model['etaBin'][0] )
+            model_etamax_vec.append( model['etaBin'][1] )
+        
+            etBinIdx = model['etBinIdx']
+            etaBinIdx = model['etaBinIdx']
+        
+            # Conver keras to Onnx
+            model['model'].summary()
+            onnx_model = keras2onnx.convert_keras(model['model'], model['model'].name)
+        
+            onnx_model_name = model_output_format%( etBinIdx, etaBinIdx )
+            model_paths.append( onnx_model_name )
+        
+            # Save onnx mode!
+            onnx.save_model(onnx_model, onnx_model_name+'.onnx')
+        
+            model_json = model['model'].to_json()
+            with open(onnx_model_name+".json", "w") as json_file:
+                json_file.write(model_json)
+                # saving the model weight separately
+                model['model'].save_weights(onnx_model_name+".h5")
+            
+            slopes.append( 0.0 )
+            offsets.append( 0.0 )
+        
+        
+        def list_to_str( l ):
+            s = str()
+            for ll in l:
+              s+=str(ll)+'; '
+            return s[:-2]
+        
+        # Write the config file
+        file = TEnv( 'ringer' )
+        file.SetValue( "__name__", name )
+        file.SetValue( "__version__", version )
+        file.SetValue( "__operation__", operation )
+        file.SetValue( "__signature__", signature )
+        file.SetValue( "Model__size"  , str(len(models)) )
+        file.SetValue( "Model__etmin" , list_to_str(model_etmin_vec) )
+        file.SetValue( "Model__etmax" , list_to_str(model_etmax_vec) )
+        file.SetValue( "Model__etamin", list_to_str(model_etamin_vec) )
+        file.SetValue( "Model__etamax", list_to_str(model_etamax_vec) )
+        file.SetValue( "Model__path"  , list_to_str( model_paths ) )
+        file.SetValue( "Threshold__size"  , str(len(models)) )
+        file.SetValue( "Threshold__etmin" , list_to_str(model_etmin_vec) )
+        file.SetValue( "Threshold__etmax" , list_to_str(model_etmax_vec) )
+        file.SetValue( "Threshold__etamin", list_to_str(model_etamin_vec) )
+        file.SetValue( "Threshold__etamax", list_to_str(model_etamax_vec) )
+        file.SetValue( "Threshold__slope" , list_to_str(slopes) )
+        file.SetValue( "Threshold__offset", list_to_str(offsets) )
+        file.SetValue( "Threshold__MaxAverageMu", 100)
+        file.WriteFile(output)
+
+
+
+
 
 
 
@@ -435,18 +676,119 @@ if __name__ == "__main__":
     tuned_info.update(create_op_dict('vloose'))
     
     
-    cv_v10 = crossval_table( tuned_info )
-    cv_v10.fill( '/Volumes/castor/tuning_data/Zee/v10/*/*/*.2.pic.gz', 'v10')
-    
-    
+    etbins = [15,20,30,40,50,100000]
+    etabins = [0, 0.8 , 1.37, 1.54, 2.37, 2.5]
+
+    cv_v2  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
+    cv_v7  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
+    cv_v8  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
+    cv_v9  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
+    cv_v10 = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
+    cv_v11 = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
+
+    # any
+    cv = cv_v2
+
+    to_csv=True
+
+    if to_csv:
+      #cv_v2.fill( '/Volumes/castor/tuning_data/Zee/r2/v2/*/*/*.pic.gz', 'v2')
+      #cv_v7.fill( '/Volumes/castor/tuning_data/Zee/r2/v7/*/*/*.pic.gz', 'v7')
+      #cv_v8.fill( '/Volumes/castor/tuning_data/Zee/r2/v8/*/*/*.pic.gz', 'v8')
+      #cv_v9.fill( '/Volumes/castor/tuning_data/Zee/r2/v9/*/*/*.pic.gz', 'v9')
+      cv_v10.fill( '/Volumes/castor/tuning_data/Zee/r1/v10/*/*/*.pic.gz', 'v10')
+      #cv_v11.fill( '/Volumes/castor/tuning_data/Zee/r2/v11/*/*/*.pic.gz', 'v11')
+        
+      #cv_v2.to_csv( 'v2.csv' )
+      #cv_v7.to_csv( 'v7.csv' )
+      #cv_v8.to_csv( 'v8.csv' )
+      #cv_v9.to_csv( 'v9.csv' )
+      cv_v10.to_csv( 'v10.csv' )
+      #cv_v11.to_csv( 'v11.csv' )
+    else:    
+
+      cv_v2.from_csv( 'v2.csv' )
+      cv_v7.from_csv( 'v7.csv' )
+      cv_v8.from_csv( 'v8.csv' )
+      cv_v9.from_csv( 'v9.csv' )
+      cv_v10.from_csv( 'v10.csv' )
+      cv_v11.from_csv( 'v11.csv' )
+ 
+
+
+    #best_inits_v2 = cv_v2.filter_inits("max_sp_val")
+    #best_inits_v2 = best_inits_v2.loc[(best_inits_v2.model_idx==3)]
+    #best_sorts_v2 = cv_v2.filter_sorts(best_inits_v2, 'max_sp_val')
+
+    #best_inits_v7 = cv_v7.filter_inits("max_sp_val")
+    #best_inits_v7 = best_inits_v7.loc[(best_inits_v7.model_idx==3)]
+    #best_sorts_v7 = cv_v7.filter_sorts(best_inits_v7, 'max_sp_val')
+
+    #best_inits_v8 = cv_v8.filter_inits("max_sp_val")
+    #best_inits_v8 = best_inits_v8.loc[(best_inits_v8.model_idx==3)]
+    #best_sorts_v8 = cv_v8.filter_sorts(best_inits_v8, 'max_sp_val')
+ 
+    #best_inits_v9 = cv_v9.filter_inits("max_sp_val")
+    #best_inits_v9 = best_inits_v9.loc[(best_inits_v9.model_idx==0)]
+    #best_sorts_v9 = cv_v9.filter_sorts(best_inits_v9, 'max_sp_val')
+  
     best_inits_v10 = cv_v10.filter_inits("max_sp_val")
     best_inits_v10 = best_inits_v10.loc[(best_inits_v10.model_idx==0)]
     best_sorts_v10 = cv_v10.filter_sorts(best_inits_v10, 'max_sp_val')
+   
+    #best_inits_v11 = cv_v11.filter_inits("max_sp_val")
+    #best_inits_v11 = best_inits_v11.loc[(best_inits_v11.model_idx==0)]
+    #best_sorts_v11 = cv_v11.filter_sorts(best_inits_v11, 'max_sp_val')
     
     
-    base_datapath = '/Volumes/castor/cern_data/files/Zee/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97'
-    metapath = base_datapath+'/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97_et%d_eta%d.npz'
-    
-    best_sorts_v10.head()
+
+    #cv_v2.plot_training_curves( best_inits_v2 )
+    #cv_v7.plot_training_curves( best_inits_v7 )
+    #cv_v8.plot_training_curves( best_inits_v8 )
+    #cv_v9.plot_training_curves( best_inits_v9 )
+    cv_v10.plot_training_curves( best_inits_v10 )
+    #cv_v11.plot_training_curves( best_inits_v11 )
+
+
+    #best_inits = pd.concat([
+    #                        best_inits_v2, 
+    #                        best_inits_v7, 
+    #                        best_inits_v8, 
+    #                        best_inits_v9, 
+    #                        best_inits_v10, 
+    #                        best_inits_v11])
+
+    #best_sorts = pd.concat([
+    #                        best_sorts_v2, 
+    #                        best_sorts_v7, 
+    #                        best_sorts_v8, 
+    #                        best_sorts_v9, 
+    #                        best_sorts_v10, 
+    #                        best_sorts_v11])
+
+
+
+    #cv.plot_roc_curves( best_sorts, ['v2', 'v7', 'v8', 'v9','v10','v11'], ['v2', 'v7', 'v8', 'v9','v10','v11'], 
+    #                    'test1.pdf',display=False, colors=get_color_fader('blue','black',6)  )
+    #cv.plot_roc_curves( best_sorts, ['v2', 'v7', 'v8', 'v9','v10','v11'], ['v2', 'v7', 'v8', 'v9','v10','v11'], 
+    #                    'test2.pdf', display=False, colors=get_color_fader('blue','black',6) ,
+    #                    et_bin=2, eta_bin=0, xmin=-0.005, xmax=0.02, ymin=0.980, ymax=1.005, fontsize=25)
+
+
+    #for op in ['tight','medium','loose','vloose']:
+    #    cv_v10.dump_beamer_table( best_inits ,  [op], 
+    #                     'tuning_v11_'+op,
+    #                     title = op+' Tunings (v11)',
+    #                     #tags = ['v2 (SS)','v7 (Rings)', 'v8 (Rings)','v9 (Rings+SS)', 'v10 (Rings)','v11 (Rings+SS)'],
+    #                     tags = ['v2','v7','v8','v9','v10','v11'],
+    #                     )
+    #
+
+    #models = cv_v10.get_best_models(best_sorts_v10, remove_last=False)
+    #
+    #for op in ['Tight']:
+    #    format = 'data17_13TeV_EGAM1_probes_lhmedium_EGAM7_vetolhvloose.model_v10.electron'+op+'.et%d_eta%d'
+    #    output = "ElectronRinger%sTriggerConfig.conf"%op
+    #    cv_v10.convert_to_onnx( models, 'TrigL2_20200715_v10', 'v10', 'electron', format ,op ,output)
 
 

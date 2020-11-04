@@ -1,5 +1,5 @@
 
-__all__ = ["Summary", "Reference"]
+__all__ = ["Summary", "Reference", "Relevance"]
 
 
 from Gaugi import Logger, StatusCode
@@ -14,6 +14,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.metrics import roc_curve
 
 import numpy as np
+from copy import copy
 import collections
 
 def sp_func(pd, fa):
@@ -37,9 +38,9 @@ class Summary( Logger ):
   def decorate( self, history, context ):
 
     d = {}
-    x_train, y_train = context.getHandler("trnData" )
-    x_val, y_val     = context.getHandler("valData" )
-    model            = context.getHandler("model"    )
+    x_train, y_train = context.getHandler("trnData")
+    x_val, y_val     = context.getHandler("valData")
+    model            = context.getHandler( "model" )
 
 
     # Get the number of events for each set (train/val). Can be used to approx the number of
@@ -112,8 +113,8 @@ class Summary( Logger ):
 
     d['max_sp_pd_val'] = (pd[knee], int(pd[knee]*sgn_total_val), sgn_total_val)
     d['max_sp_fa_val'] = (fa[knee], int(fa[knee]*bkg_total_val), bkg_total_val)
-    d['max_sp_val'] = sp[knee]
-    d['acc_val']              = accuracy_score(y_val,y_pred_val>threshold)
+    d['max_sp_val']    = sp[knee]
+    d['acc_val']       = accuracy_score(y_val,y_pred_val>threshold)
 
     # Operation
     fa, pd, thresholds = roc_curve(y_operation, y_pred_operation)
@@ -190,7 +191,6 @@ class Reference( Logger ):
     x_train, y_train = context.getHandler("trnData")
     x_val , y_val    = context.getHandler("valData")
 
-    # Get all outputs before the last activation function
     y_pred = model.predict( x_train, batch_size = 1024, verbose=0 )
     y_pred_val = model.predict( x_val, batch_size = 1024, verbose=0 )
 
@@ -292,6 +292,141 @@ class Reference( Logger ):
     d['threshold_op'] = thresholds_op[index]
 
     return d
+
+
+
+
+
+
+
+
+class Relevance(Logger):
+
+  #
+  # Constructor
+  #
+  def __init__( self , feature_names, method ):
+    Logger.__init__(self)
+    self.__feature_names = feature_names
+    self.__method = method
+ 
+
+
+  #
+  # decorate the history after the training phase
+  #
+  def decorate( self, history, context ):
+    
+
+    model            = context.getHandler( "model"  )
+    x_train, y_train = context.getHandler("trnData" )
+    x_val , y_val    = context.getHandler("valData" )
+    features         = context.getHandler("features")
+
+
+    y_pred = model.predict( x_train, batch_size = 1024, verbose=0 )
+    y_pred_val = model.predict( x_val, batch_size = 1024, verbose=0 )
+    
+    # get vectors for operation mode (train+val)
+    y_pred_operation = np.concatenate( (y_pred, y_pred_val), axis=0)
+    y_operation = np.concatenate((y_train,y_val), axis=0)
+
+
+    d = {}
+
+    # No threshold is needed
+    d['auc_op'] = roc_auc_score(y_operation, y_pred_operation)
+    d['mse_op'] = mean_squared_error(y_operation, y_pred_operation)
+
+
+
+    # Here, the threshold is variable and the best values will
+    # be setted by the max sp value found in hte roc curve
+    # Training
+    fa, pd, thresholds = roc_curve(y_operation, y_pred_operation)
+    sp = ( np.sqrt(  np.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  ) )
+    knee = np.argmax(sp) 
+    threshold = thresholds[knee]
+   
+    # Hold some benchmarks for relevance analysis
+    d['sp_op'] = sp[knee]
+
+ 
+
+
+    h = {
+         'before'  : d,
+         'foreach' : [],
+        }
+
+    MSG_INFO( self, "Calculate the relevance for each selected feature..." )
+    for name in self.__feature_names:
+     
+      d_name = {}
+      d_name['feature'] = name
+
+      MSG_INFO( self, "Deactivate feature with name: %s", name )
+      y_pred = self.__deactivate_feature_and_predict( model, x_train, features, name , self.__method)
+      y_pred_val = self.__deactivate_feature_and_predict( model, x_val, features, name, self.__method)
+
+      # get vectors for operation mode (train+val)
+      y_pred_operation = np.concatenate( (y_pred, y_pred_val), axis=0)
+      y_operation = np.concatenate((y_train,y_val), axis=0)
+
+      d_name['auc_op'] = roc_auc_score(y_operation, y_pred_operation)
+      d_name['mse_op'] = mean_squared_error(y_operation, y_pred_operation)
+
+
+      # Here, the threshold is variable and the best values will
+      # be setted by the max sp value found in hte roc curve
+      # Training
+      fa, pd, thresholds = roc_curve(y_train, y_pred)
+      sp = np.sqrt(  np.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))  )
+      knee = np.argmax(sp)
+      max_sp = sp[knee]
+      threshold = thresholds[knee]
+
+      d_name['sp_op'] = sp[knee]
+      
+      h['foreach'].append( d_name )
+
+      value = (d['sp_op']-d_name['sp_op'])
+      status = 'Confusion' if value < 0 else 'Relevant'
+
+      MSG_INFO( self,  "Relevance (%s), deltaSP: %1.2f (%s)", name, value, status )
+
+    
+    history['relevance'] = h
+
+
+
+  def __deactivate_feature_and_predict( self, model, data, all_features, feature, method='by_mean' ):
+
+    # locate the feature position given by name
+    input_idx, feature_idx = self.__where( all_features , feature )
+
+    local_data = copy(data)
+    if method=='by_mean':
+      local_data[input_idx][:,feature_idx] = np.mean( local_data[input_idx][:,feature_idx] )
+      return model.predict( local_data, batch_size=1024, verbose=0)
+    else:
+      MSG_FATAL( self, "Deactivation method not reconized: %s", method )
+
+
+
+  def __where( self, all_features, wanted_feature ):
+    # where is it first?
+    for idx, features_for_this_input in enumerate(all_features):
+      for jdx, feature in enumerate(features_for_this_input):
+        if feature==wanted_feature:
+          return idx, jdx
+    
+
+
+
+
+
+
 
 
 

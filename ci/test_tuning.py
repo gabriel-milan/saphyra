@@ -17,11 +17,13 @@ def test_tuning():
     # This is mandatory
     splits = [(train_index, val_index) for train_index, val_index in cv.split(data,target)]
     # split for this sort
-    x_train = data[splits[sort][0]]
-    x_val   = data[splits[sort][1]]
+    x_train = [ data[splits[sort][0]] ]
+    x_val   = [ data[splits[sort][1]] ]
     y_train = target [ splits[sort][0] ]
     y_val   = target [ splits[sort][1] ]
-    return x_train, x_val, y_train, y_val, splits
+
+    feature_names = [ ['f1','f2','f3','f4'] ]
+    return x_train, x_val, y_train, y_val, splits , feature_names
   
   
   
@@ -38,8 +40,11 @@ def test_tuning():
   model.get_layer('dense1').trainable=False
   
   
-  from saphyra.decorators import Summary
-  decorators = [Summary()]
+  from saphyra.decorators import Summary, Relevance
+  decorators = [
+                Summary(), 
+                Relevance( ['f1','f2','f3','f4'], 'by_mean' ) 
+               ]
   
   from saphyra.metrics import sp_metric, pd_metric, fa_metric
   
@@ -63,7 +68,7 @@ def test_tuning():
                                   loss              = 'binary_crossentropy',
                                   metrics           = ['accuracy', sp_metric],
                                   callbacks         = [stop],
-                                  epochs            = 100000,
+                                  epochs            = 100,
                                   class_weight      = True,
                                   sorts             = [0],
                                   inits             = 1,
