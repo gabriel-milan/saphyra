@@ -134,18 +134,17 @@ class BinaryClassificationJob( Logger ):
     for isort, sort in enumerate( self.sorts ):
 
       # get the current kfold and train, val sets
-      x_train, x_val, y_train, y_val, self._index_from_cv = self.pattern_g( self.__pattern_generator, self.crossval, sort )
+      x_train, x_val, y_train, y_val, self._index_from_cv, features = self.pattern_g( self.__pattern_generator, self.crossval, sort )
 
 
       if ( len(np.unique(y_train))!= 2 ):
         MSG_FATAL(self, "The number of targets is different than 2. This job is used for binary classification.")
 
 
-      # check if there are fewer events than the batch_size
+       check if there are fewer events than the batch_size
       _, n_evt_per_class = np.unique(y_train, return_counts=True)
       batch_size = (self.batch_size if np.min(n_evt_per_class) > self.batch_size
                      else np.min(n_evt_per_class))
-
 
       MSG_INFO( self, "Using %d as batch size.", batch_size)
 
@@ -155,11 +154,14 @@ class BinaryClassificationJob( Logger ):
 
           # force the context is empty for each training
           self.__context.clear()
-          self.__context.setHandler( "jobId"   , self.__jobId         )
-          self.__context.setHandler( "crossval", self.crossval        )
-          self.__context.setHandler( "index"   , self.__index_from_cv )
-          self.__context.setHandler( "valData" , (x_val, y_val)       )
-          self.__context.setHandler( "trnData" , (x_train, y_train)   )
+          self.__context.setHandler( "jobId"    , self.__jobId         )
+          self.__context.setHandler( "crossval" , self.crossval        )
+          self.__context.setHandler( "index"    , self.__index_from_cv )
+          self.__context.setHandler( "valData"  , (x_val, y_val)       )
+          self.__context.setHandler( "trnData"  , (x_train, y_train)   )
+          self.__context.setHandler( "features" , features             )
+
+
 
           # get the model "ptr" for this sort, init and model index
           model_for_this_init = clone_model(model) # get only the model

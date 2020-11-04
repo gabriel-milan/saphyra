@@ -17,13 +17,14 @@ import tensorflow as tf
 model_from_json = tf.keras.models.model_from_json
 import json
 
-
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-#import seaborn as sns
-#import mplhep as hep
-#plt.style.use(hep.style.ATLAS)
-
+try:
+  import matplotlib.pyplot as plt
+  import matplotlib as mpl
+  #import seaborn as sns
+  #import mplhep as hep
+  #plt.style.use(hep.style.ATLAS)
+except:
+  print('no matplotlib found!')
 
 
 def get_color_fader( c1, c2, n ):
