@@ -141,7 +141,7 @@ class BinaryClassificationJob( Logger ):
         MSG_FATAL(self, "The number of targets is different than 2. This job is used for binary classification.")
 
 
-       check if there are fewer events than the batch_size
+      # check if there are fewer events than the batch_size
       _, n_evt_per_class = np.unique(y_train, return_counts=True)
       batch_size = (self.batch_size if np.min(n_evt_per_class) > self.batch_size
                      else np.min(n_evt_per_class))
