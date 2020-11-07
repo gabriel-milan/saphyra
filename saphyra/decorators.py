@@ -390,7 +390,7 @@ class Relevance(Logger):
       
       h['foreach'].append( d_name )
 
-      value = (d['sp_op']-d_name['sp_op'])
+      value = (d['sp_op']-d_name['sp_op'])*100
       status = 'Confusion' if value < 0 else 'Relevant'
 
       MSG_INFO( self,  "Relevance (%s), deltaSP: %1.2f (%s)", name, value, status )

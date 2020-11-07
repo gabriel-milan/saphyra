@@ -284,7 +284,6 @@ class crossval_table( Logger ):
                 plt.close(fig)
         
         tag = best_inits.train_tag.unique()[0]
-        print(tag)
         for et_bin in best_inits.et_bin.unique():
             for eta_bin in best_inits.eta_bin.unique():
                 plot_training_curves_for_each_sort(best_inits, et_bin, eta_bin, 
@@ -686,104 +685,110 @@ if __name__ == "__main__":
     cv_v9  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
     cv_v10 = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
     cv_v11 = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
+    cv_v12 = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
 
     # any
     cv = cv_v2
+    #cv_v2.fill( '/Volumes/castor/tuning_data/Zee/r2/v2/*/*/*.pic.gz', 'v2')
+    #cv_v7.fill( '/Volumes/castor/tuning_data/Zee/r2/v7/*/*/*.pic.gz', 'v7')
+    #cv_v8.fill( '/Volumes/castor/tuning_data/Zee/r2/v8/*/*/*.pic.gz', 'v8')
+    cv_v9.fill( '/Volumes/castor/tuning_data/Zee/r1/v9/*/*/*.pic.gz', 'v9')
+    cv_v10.fill( '/Volumes/castor/tuning_data/Zee/r1/v10/*/*/*.pic.gz', 'v10')
+    cv_v11.fill( '/Volumes/castor/tuning_data/Zee/r1/v11/*/*/*.pic.gz', 'v11')
+    #cv_v12.fill( '/Volumes/castor/tuning_data/Zee/r1/v12/*/*/*.pic.gz', 'v12')
+      
+    #cv_v2.to_csv( 'v2.csv' )
+    #cv_v7.to_csv( 'v7.csv' )
+    #cv_v8.to_csv( 'v8.csv' )
+    cv_v9.to_csv( 'v9.csv' )
+    cv_v10.to_csv( 'v10.csv' )
+    cv_v11.to_csv( 'v11.csv' )
+    #cv_v12.to_csv( 'v12.csv' )
 
-    to_csv=True
-
-    if to_csv:
-      #cv_v2.fill( '/Volumes/castor/tuning_data/Zee/r2/v2/*/*/*.pic.gz', 'v2')
-      #cv_v7.fill( '/Volumes/castor/tuning_data/Zee/r2/v7/*/*/*.pic.gz', 'v7')
-      #cv_v8.fill( '/Volumes/castor/tuning_data/Zee/r2/v8/*/*/*.pic.gz', 'v8')
-      #cv_v9.fill( '/Volumes/castor/tuning_data/Zee/r2/v9/*/*/*.pic.gz', 'v9')
-      cv_v10.fill( '/Volumes/castor/tuning_data/Zee/r1/v10/*/*/*.pic.gz', 'v10')
-      #cv_v11.fill( '/Volumes/castor/tuning_data/Zee/r2/v11/*/*/*.pic.gz', 'v11')
-        
-      #cv_v2.to_csv( 'v2.csv' )
-      #cv_v7.to_csv( 'v7.csv' )
-      #cv_v8.to_csv( 'v8.csv' )
-      #cv_v9.to_csv( 'v9.csv' )
-      cv_v10.to_csv( 'v10.csv' )
-      #cv_v11.to_csv( 'v11.csv' )
-    else:    
-
-      cv_v2.from_csv( 'v2.csv' )
-      cv_v7.from_csv( 'v7.csv' )
-      cv_v8.from_csv( 'v8.csv' )
-      cv_v9.from_csv( 'v9.csv' )
-      cv_v10.from_csv( 'v10.csv' )
-      cv_v11.from_csv( 'v11.csv' )
+    cv_v2.from_csv( 'v2.csv' )
+    cv_v7.from_csv( 'v7.csv' )
+    cv_v8.from_csv( 'v8.csv' )
+    cv_v9.from_csv( 'v9.csv' )
+    cv_v10.from_csv( 'v10.csv' )
+    cv_v11.from_csv( 'v11.csv' )
+    cv_v12.from_csv( 'v12.csv' )
  
 
 
-    #best_inits_v2 = cv_v2.filter_inits("max_sp_val")
-    #best_inits_v2 = best_inits_v2.loc[(best_inits_v2.model_idx==3)]
-    #best_sorts_v2 = cv_v2.filter_sorts(best_inits_v2, 'max_sp_val')
+    best_inits_v2 = cv_v2.filter_inits("max_sp_val")
+    best_inits_v2 = best_inits_v2.loc[(best_inits_v2.model_idx==3)]
+    best_sorts_v2 = cv_v2.filter_sorts(best_inits_v2, 'max_sp_val')
 
-    #best_inits_v7 = cv_v7.filter_inits("max_sp_val")
-    #best_inits_v7 = best_inits_v7.loc[(best_inits_v7.model_idx==3)]
-    #best_sorts_v7 = cv_v7.filter_sorts(best_inits_v7, 'max_sp_val')
+    best_inits_v7 = cv_v7.filter_inits("max_sp_val")
+    best_inits_v7 = best_inits_v7.loc[(best_inits_v7.model_idx==3)]
+    best_sorts_v7 = cv_v7.filter_sorts(best_inits_v7, 'max_sp_val')
 
-    #best_inits_v8 = cv_v8.filter_inits("max_sp_val")
-    #best_inits_v8 = best_inits_v8.loc[(best_inits_v8.model_idx==3)]
-    #best_sorts_v8 = cv_v8.filter_sorts(best_inits_v8, 'max_sp_val')
+    best_inits_v8 = cv_v8.filter_inits("max_sp_val")
+    best_inits_v8 = best_inits_v8.loc[(best_inits_v8.model_idx==3)]
+    best_sorts_v8 = cv_v8.filter_sorts(best_inits_v8, 'max_sp_val')
  
-    #best_inits_v9 = cv_v9.filter_inits("max_sp_val")
-    #best_inits_v9 = best_inits_v9.loc[(best_inits_v9.model_idx==0)]
-    #best_sorts_v9 = cv_v9.filter_sorts(best_inits_v9, 'max_sp_val')
+    best_inits_v9 = cv_v9.filter_inits("max_sp_val")
+    best_inits_v9 = best_inits_v9.loc[(best_inits_v9.model_idx==0)]
+    best_sorts_v9 = cv_v9.filter_sorts(best_inits_v9, 'max_sp_val')
   
     best_inits_v10 = cv_v10.filter_inits("max_sp_val")
     best_inits_v10 = best_inits_v10.loc[(best_inits_v10.model_idx==0)]
     best_sorts_v10 = cv_v10.filter_sorts(best_inits_v10, 'max_sp_val')
    
-    #best_inits_v11 = cv_v11.filter_inits("max_sp_val")
-    #best_inits_v11 = best_inits_v11.loc[(best_inits_v11.model_idx==0)]
-    #best_sorts_v11 = cv_v11.filter_sorts(best_inits_v11, 'max_sp_val')
+    best_inits_v11 = cv_v11.filter_inits("max_sp_val")
+    best_inits_v11 = best_inits_v11.loc[(best_inits_v11.model_idx==0)]
+    best_sorts_v11 = cv_v11.filter_sorts(best_inits_v11, 'max_sp_val')
     
+    best_inits_v12 = cv_v12.filter_inits("max_sp_val")
+    best_inits_v12 = best_inits_v12.loc[(best_inits_v12.model_idx==0)]
+    best_sorts_v12 = cv_v12.filter_sorts(best_inits_v12, 'max_sp_val')
     
 
     #cv_v2.plot_training_curves( best_inits_v2 )
     #cv_v7.plot_training_curves( best_inits_v7 )
     #cv_v8.plot_training_curves( best_inits_v8 )
     #cv_v9.plot_training_curves( best_inits_v9 )
-    cv_v10.plot_training_curves( best_inits_v10 )
+    #cv_v10.plot_training_curves( best_inits_v10 )
     #cv_v11.plot_training_curves( best_inits_v11 )
 
 
-    #best_inits = pd.concat([
-    #                        best_inits_v2, 
-    #                        best_inits_v7, 
-    #                        best_inits_v8, 
-    #                        best_inits_v9, 
-    #                        best_inits_v10, 
-    #                        best_inits_v11])
+    best_inits = pd.concat([
+                            best_inits_v2, 
+                            best_inits_v7, 
+                            best_inits_v8, 
+                            best_inits_v9, 
+                            best_inits_v10, 
+                            best_inits_v11,
+                            best_inits_v12,
+                            ])
 
-    #best_sorts = pd.concat([
-    #                        best_sorts_v2, 
-    #                        best_sorts_v7, 
-    #                        best_sorts_v8, 
-    #                        best_sorts_v9, 
-    #                        best_sorts_v10, 
-    #                        best_sorts_v11])
-
-
-
-    #cv.plot_roc_curves( best_sorts, ['v2', 'v7', 'v8', 'v9','v10','v11'], ['v2', 'v7', 'v8', 'v9','v10','v11'], 
-    #                    'test1.pdf',display=False, colors=get_color_fader('blue','black',6)  )
-    #cv.plot_roc_curves( best_sorts, ['v2', 'v7', 'v8', 'v9','v10','v11'], ['v2', 'v7', 'v8', 'v9','v10','v11'], 
-    #                    'test2.pdf', display=False, colors=get_color_fader('blue','black',6) ,
-    #                    et_bin=2, eta_bin=0, xmin=-0.005, xmax=0.02, ymin=0.980, ymax=1.005, fontsize=25)
+    best_sorts = pd.concat([
+                            best_sorts_v2, 
+                            best_sorts_v7, 
+                            best_sorts_v8, 
+                            best_sorts_v9, 
+                            best_sorts_v10, 
+                            best_sorts_v11,
+                            best_sorts_v12,
+                            ])
 
 
-    #for op in ['tight','medium','loose','vloose']:
-    #    cv_v10.dump_beamer_table( best_inits ,  [op], 
-    #                     'tuning_v11_'+op,
-    #                     title = op+' Tunings (v11)',
-    #                     #tags = ['v2 (SS)','v7 (Rings)', 'v8 (Rings)','v9 (Rings+SS)', 'v10 (Rings)','v11 (Rings+SS)'],
-    #                     tags = ['v2','v7','v8','v9','v10','v11'],
-    #                     )
-    #
+
+    cv.plot_roc_curves( best_sorts, ['v2', 'v7', 'v8', 'v9','v10','v11','v12'], ['v2', 'v7', 'v8', 'v9','v10','v11','v12'], 
+                        'test1.pdf',display=False, colors=get_color_fader('blue','black',7)  )
+    cv.plot_roc_curves( best_sorts, ['v2', 'v7', 'v8', 'v9','v10','v11','v12'], ['v2', 'v7', 'v8', 'v9','v10','v11','v12'], 
+                        'test2.pdf', display=False, colors=get_color_fader('blue','black',7) ,
+                        et_bin=2, eta_bin=0, xmin=-0.005, xmax=0.02, ymin=0.980, ymax=1.005, fontsize=25)
+
+
+    for op in ['tight','medium','loose','vloose']:
+        cv_v10.dump_beamer_table( best_inits ,  [op], 
+                         'tuning_v11_'+op,
+                         title = op+' Tunings (v11)',
+                         #tags = ['v2 (SS)','v7 (Rings)', 'v8 (Rings)','v9 (Rings+SS)', 'v10 (Rings)','v11 (Rings+SS)'],
+                         tags = ['v2','v7','v8','v9','v10','v11','v12'],
+                         )
+    
 
     #models = cv_v10.get_best_models(best_sorts_v10, remove_last=False)
     #
