@@ -1,5 +1,5 @@
 
-__init__ = ["model_generator_base"]
+__all__ = ["model_generator_base"]
 
 import tensorflow as tf
 from tensorflow.keras.models import clone_model, Model
