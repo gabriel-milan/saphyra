@@ -51,7 +51,7 @@ class BinaryClassificationJob( Logger ):
     self.__class_weight  = retrieve_kw( kw, 'class_weight'   , False                 )
     self.__save_history  = retrieve_kw( kw, 'save_history'   , True                  )
     self.decorators      = retrieve_kw( kw, 'decorators'     , []                    )
-    self.__model_generator=retireve_kw( kw, 'model_generator', None                  )
+    self.__model_generator=retrieve_kw( kw, 'model_generator', None                  )
 
     # read the job configuration from file
     if job_auto_config:
