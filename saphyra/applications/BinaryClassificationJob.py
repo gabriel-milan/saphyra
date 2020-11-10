@@ -51,7 +51,7 @@ class BinaryClassificationJob( Logger ):
     self.__class_weight  = retrieve_kw( kw, 'class_weight'   , False                 )
     self.__save_history  = retrieve_kw( kw, 'save_history'   , True                  )
     self.decorators      = retrieve_kw( kw, 'decorators'     , []                    )
-
+    self.__model_generator=retireve_kw( kw, 'model_generator', None                  )
 
     # read the job configuration from file
     if job_auto_config:
@@ -164,7 +164,10 @@ class BinaryClassificationJob( Logger ):
 
 
           # get the model "ptr" for this sort, init and model index
-          model_for_this_init = clone_model(model) # get only the model
+          if self.__model_generator:
+            model_for_this_init = self.__model_generator( sort )
+          else: 
+            model_for_this_init = clone_model(model) # get only the model
 
 
           try:

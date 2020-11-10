@@ -15,6 +15,10 @@ from . import reprocess
 __all__.extend( reprocess.__all__ )
 from .reprocess import *
 
+from . import model_generator_base
+__all__.extend( model_generator_base.__all__ )
+from .model_generator_base import *
+
 
 
 
