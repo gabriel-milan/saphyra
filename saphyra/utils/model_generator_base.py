@@ -2,12 +2,12 @@
 __all__ = ["model_generator_base"]
 
 import tensorflow as tf
-from tensorflow.keras.models import clone_model, Model
+from tensorflow.keras.models import clone_model, Model, model_from_json
 from tensorflow.keras import layers
 from saphyra.core import TunedDataReader
 from Gaugi.messenger.macros import *
 from Gaugi import Logger
-
+import json
 
 
 
@@ -32,22 +32,21 @@ class model_generator_base( Logger ):
   #
   def transfer_weights( self, from_model, from_layer, to_model, to_layer, trainable=True ):
 
-    weights = None
+    source_layer = None
     # Loop over all layers in the source model
     for layer in from_model.layers:
       if layer.name == from_layer:
-        weights = layer.weights
+        source_layer = layer
     
-    if not weights:
+    if not source_layer:
       MSG_FATAL( self, "From model with layer %s does not exist.", from_layer)
 
     # Loop of all layers in the target model
-    for layer in to_model.layers:
-      if layer.name == to_layer:
-        if layer.weights.shape != weighhs.shape:
-          MSG_FATAL(self, "The target layer with name %s does not match with the weights shape" , to_layer )
-        layer.weights = weights
-        layer.trainable = trainable
+    for target_layer in to_model.layers:
+      if target_layer.name == to_layer:
+        MSG_INFO(self, "Copy weights from %s to %s", from_layer, to_layer)
+        target_layer.set_weights( source_layer.get_weights() )
+        target_layer.trainable = trainable
 
 
 
@@ -57,7 +56,7 @@ class model_generator_base( Logger ):
   def load_models( self, path ):
     tunedData = TunedDataReader()
     tunedData.load( path )
-    return tunedData.obj().get_data()
+    return tunedData.object().get_data()
 
 
 
@@ -70,11 +69,11 @@ class model_generator_base( Logger ):
     # Loop over all tuned files
     for tuned in tuned_list:
       history = tuned['history']
-      if tuned['sort']==sort and best_sp > history['summary']['max_sp_op'] and tuned['imodel']==imodel: 
+      if tuned['sort']==sort and best_sp < history['summary']['max_sp_op'] and tuned['imodel']==imodel: 
         # read the model 
         best_model = model_from_json( json.dumps(tuned['sequence'], separators=(',', ':')) )
         best_model.set_weights( tuned['weights'] )
-        best_model = Model(model.inputs, model.layers[-1].output)
+        best_model = Model(best_model.inputs, best_model.layers[-1].output)
         best_sp =history['summary']['max_sp_op']
 
     return best_model

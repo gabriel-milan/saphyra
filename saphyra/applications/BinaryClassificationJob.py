@@ -162,9 +162,10 @@ class BinaryClassificationJob( Logger ):
           self.__context.setHandler( "features" , features             )
 
 
-
+          print(model)
           # get the model "ptr" for this sort, init and model index
           if self.__model_generator:
+            MSG_INFO( self, "Apply model generator..." )
             model_for_this_init = self.__model_generator( sort )
           else: 
             model_for_this_init = clone_model(model) # get only the model
