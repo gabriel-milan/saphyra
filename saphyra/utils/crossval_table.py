@@ -10,6 +10,7 @@ from functools import reduce
 import collections, os, glob, json, copy, re
 import numpy as np
 import pandas as pd
+import os
 
 from saphyra.layers.RpLayer import RpLayer
 # Just to remove the keras dependence
@@ -250,9 +251,13 @@ class crossval_table( Logger ):
 		#
 		# Plot the training curves for all sorts.
 		#
-    def plot_training_curves( self, best_inits, display=False ):
+    def plot_training_curves( self, best_inits, best_sorts, dirname, display=False, start_epoch=3 ):
 			
-        def plot_training_curves_for_each_sort(table, et_bin, eta_bin, output, display=False):
+        basepath = os.getcwd()
+        if not os.path.exists(basepath+'/'+dirname):
+          os.mkdir(basepath+'/'+dirname)
+
+        def plot_training_curves_for_each_sort(table, et_bin, eta_bin, best_sort , output, display=False, start_epoch=0):
             table = table.loc[(table.et_bin==et_bin) & (table.eta_bin==eta_bin)] 
             nsorts = len(table.sort.unique())
             fig, ax = plt.subplots(nsorts,2, figsize=(15,20))
@@ -264,15 +269,15 @@ class crossval_table( Logger ):
                 best_epoch = history['max_sp_best_epoch_val'][-1]
                 # Make the plot here
                 ax[idx, 0].set_xlabel('Epochs')
-                ax[idx, 0].set_ylabel('Loss')
-                ax[idx, 0].plot(history['loss'], c='b', label='Train Step')
-                ax[idx, 0].plot(history['val_loss'], c='r', label='Validation Step') 
+                ax[idx, 0].set_ylabel('Loss (sort = %d)'%sort, color = 'r' if best_sort==sort else 'k')
+                ax[idx, 0].plot(history['loss'][start_epoch::], c='b', label='Train Step')
+                ax[idx, 0].plot(history['val_loss'][start_epoch::], c='r', label='Validation Step') 
                 ax[idx, 0].axvline(x=best_epoch, c='k', label='Best epoch')
                 ax[idx, 0].legend()
                 ax[idx, 0].grid()
                 ax[idx, 1].set_xlabel('Epochs')
-                ax[idx, 1].set_ylabel('SP')
-                ax[idx, 1].plot(history['max_sp_val'], c='r', label='Validation Step') 
+                ax[idx, 1].set_ylabel('SP (sort = %d)'%sort, color = 'r' if best_sort==sort else 'k')
+                ax[idx, 1].plot(history['max_sp_val'][start_epoch::], c='r', label='Validation Step') 
                 ax[idx, 1].axvline(x=best_epoch, c='k', label='Best epoch')
                 ax[idx, 1].legend()
                 ax[idx, 1].grid()
@@ -286,8 +291,9 @@ class crossval_table( Logger ):
         tag = best_inits.train_tag.unique()[0]
         for et_bin in best_inits.et_bin.unique():
             for eta_bin in best_inits.eta_bin.unique():
-                plot_training_curves_for_each_sort(best_inits, et_bin, eta_bin, 
-                    'train_evolution_best_config_et%d_eta%d_%s.pdf'%(et_bin,eta_bin,tag), display)
+                best_sort = best_sorts.loc[(best_sorts.et_bin==et_bin) & (best_sorts.eta_bin==eta_bin)].sort
+                plot_training_curves_for_each_sort(best_inits, et_bin, eta_bin, best_sort.values[0], 
+                    basepath+'/'+dirname+'/train_evolution_et%d_eta%d_%s.pdf'%(et_bin,eta_bin,tag), display, start_epoch)
 
 
 
@@ -398,7 +404,7 @@ class crossval_table( Logger ):
         for operation_point in config_dict.keys():
             summary[operation_point] = {}
             for tag in train_tags:
-                summary[operation_point][tag] = [ [ {} for __ in range(len(etabins)-1) ] for _ in range(len(etbins)-1)]
+                summary[operation_point][tag] = [ [ {} for __ in range(len(self.__etabins)-1) ] for _ in range(len(self.__etbins)-1)]
                 for etBinIdx in range(len(self.__etbins)-1):
                     for etaBinIdx in range(len(self.__etabins)-1):
                         for key in config_dict[operation_point]:
@@ -473,10 +479,12 @@ class crossval_table( Logger ):
                     pdref = itable[operation_point+'_pd_ref'].values[0]*100
                     faref = itable[operation_point+'_fa_ref'].values[0]*100
                     if idx > 0:
-                        lines2 += [ TableLine( columns = [tag ,colorPD+('%1.2f$\pm$%1.2f')%(pd,pd_std),colorPF+('%1.2f$\pm$%1.2f')%(fa,fa_std) ], _contextManaged = False ) ]
+                        lines2 += [ TableLine( columns = [tag.replace('_','\_') ,
+                          colorPD+('%1.2f$\pm$%1.2f')%(pd,pd_std),colorPF+('%1.2f$\pm$%1.2f')%(fa,fa_std) ], _contextManaged = False ) ]
                     else:
                       lines2 += [ TableLine( columns = ['Ref.' ,colorPD+('%1.2f')%(pdref),colorPF+('%1.2f')%(faref) ], _contextManaged = False ) ]
-                      lines2 += [ TableLine( columns = [tag ,colorPD+('%1.2f$\pm$%1.2f')%(pd,pd_std),colorPF+('%1.2f$\pm$%1.2f')%(fa,fa_std) ], _contextManaged = False ) ]
+                      lines2 += [ TableLine( columns = [tag.replace('_','\_') ,
+                        colorPD+('%1.2f$\pm$%1.2f')%(pd,pd_std),colorPF+('%1.2f$\pm$%1.2f')%(fa,fa_std) ], _contextManaged = False ) ]
 
 
                 # Create all tables into the PDF Latex 
@@ -679,122 +687,17 @@ if __name__ == "__main__":
     etbins = [15,20,30,40,50,100000]
     etabins = [0, 0.8 , 1.37, 1.54, 2.37, 2.5]
 
-    cv_v2  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
-    cv_v7  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
-    cv_v8  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
-    cv_v9  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
-    cv_v10 = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
-    cv_v11 = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
-    cv_v12 = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
+    cv  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
 
-    # any
-    cv = cv_v2
-    #cv_v2.fill( '/Volumes/castor/tuning_data/Zee/r2/v2/*/*/*.pic.gz', 'v2')
-    #cv_v7.fill( '/Volumes/castor/tuning_data/Zee/r2/v7/*/*/*.pic.gz', 'v7')
-    #cv_v8.fill( '/Volumes/castor/tuning_data/Zee/r2/v8/*/*/*.pic.gz', 'v8')
-    cv_v9.fill( '/Volumes/castor/tuning_data/Zee/r1/v9/*/*/*.pic.gz', 'v9')
-    cv_v10.fill( '/Volumes/castor/tuning_data/Zee/r1/v10/*/*/*.pic.gz', 'v10')
-    cv_v11.fill( '/Volumes/castor/tuning_data/Zee/r1/v11/*/*/*.pic.gz', 'v11')
-    #cv_v12.fill( '/Volumes/castor/tuning_data/Zee/r1/v12/*/*/*.pic.gz', 'v12')
-      
-    #cv_v2.to_csv( 'v2.csv' )
-    #cv_v7.to_csv( 'v7.csv' )
-    #cv_v8.to_csv( 'v8.csv' )
-    cv_v9.to_csv( 'v9.csv' )
-    cv_v10.to_csv( 'v10.csv' )
-    cv_v11.to_csv( 'v11.csv' )
-    #cv_v12.to_csv( 'v12.csv' )
+    #cv.fill( '/Volumes/castor/tuning_data/Zee/old/r1_old/v11/*/*/*.pic.gz', 'v11')
+    #cv.to_csv( 'v11.csv' )
 
-    cv_v2.from_csv( 'v2.csv' )
-    cv_v7.from_csv( 'v7.csv' )
-    cv_v8.from_csv( 'v8.csv' )
-    cv_v9.from_csv( 'v9.csv' )
-    cv_v10.from_csv( 'v10.csv' )
-    cv_v11.from_csv( 'v11.csv' )
-    cv_v12.from_csv( 'v12.csv' )
- 
-
-
-    best_inits_v2 = cv_v2.filter_inits("max_sp_val")
-    best_inits_v2 = best_inits_v2.loc[(best_inits_v2.model_idx==3)]
-    best_sorts_v2 = cv_v2.filter_sorts(best_inits_v2, 'max_sp_val')
-
-    best_inits_v7 = cv_v7.filter_inits("max_sp_val")
-    best_inits_v7 = best_inits_v7.loc[(best_inits_v7.model_idx==3)]
-    best_sorts_v7 = cv_v7.filter_sorts(best_inits_v7, 'max_sp_val')
-
-    best_inits_v8 = cv_v8.filter_inits("max_sp_val")
-    best_inits_v8 = best_inits_v8.loc[(best_inits_v8.model_idx==3)]
-    best_sorts_v8 = cv_v8.filter_sorts(best_inits_v8, 'max_sp_val')
- 
-    best_inits_v9 = cv_v9.filter_inits("max_sp_val")
-    best_inits_v9 = best_inits_v9.loc[(best_inits_v9.model_idx==0)]
-    best_sorts_v9 = cv_v9.filter_sorts(best_inits_v9, 'max_sp_val')
-  
-    best_inits_v10 = cv_v10.filter_inits("max_sp_val")
-    best_inits_v10 = best_inits_v10.loc[(best_inits_v10.model_idx==0)]
-    best_sorts_v10 = cv_v10.filter_sorts(best_inits_v10, 'max_sp_val')
+    cv.from_csv( 'v11.csv' )
+    best_inits = cv.filter_inits("max_sp_val")
+    best_inits = best_inits.loc[(best_inits.model_idx==0)]
+    best_sorts = cv.filter_sorts(best_inits, 'max_sp_val')
    
-    best_inits_v11 = cv_v11.filter_inits("max_sp_val")
-    best_inits_v11 = best_inits_v11.loc[(best_inits_v11.model_idx==0)]
-    best_sorts_v11 = cv_v11.filter_sorts(best_inits_v11, 'max_sp_val')
-    
-    best_inits_v12 = cv_v12.filter_inits("max_sp_val")
-    best_inits_v12 = best_inits_v12.loc[(best_inits_v12.model_idx==0)]
-    best_sorts_v12 = cv_v12.filter_sorts(best_inits_v12, 'max_sp_val')
-    
 
-    #cv_v2.plot_training_curves( best_inits_v2 )
-    #cv_v7.plot_training_curves( best_inits_v7 )
-    #cv_v8.plot_training_curves( best_inits_v8 )
-    #cv_v9.plot_training_curves( best_inits_v9 )
-    #cv_v10.plot_training_curves( best_inits_v10 )
-    #cv_v11.plot_training_curves( best_inits_v11 )
-
-
-    best_inits = pd.concat([
-                            best_inits_v2, 
-                            best_inits_v7, 
-                            best_inits_v8, 
-                            best_inits_v9, 
-                            best_inits_v10, 
-                            best_inits_v11,
-                            best_inits_v12,
-                            ])
-
-    best_sorts = pd.concat([
-                            best_sorts_v2, 
-                            best_sorts_v7, 
-                            best_sorts_v8, 
-                            best_sorts_v9, 
-                            best_sorts_v10, 
-                            best_sorts_v11,
-                            best_sorts_v12,
-                            ])
-
-
-
-    cv.plot_roc_curves( best_sorts, ['v2', 'v7', 'v8', 'v9','v10','v11','v12'], ['v2', 'v7', 'v8', 'v9','v10','v11','v12'], 
-                        'test1.pdf',display=False, colors=get_color_fader('blue','black',7)  )
-    cv.plot_roc_curves( best_sorts, ['v2', 'v7', 'v8', 'v9','v10','v11','v12'], ['v2', 'v7', 'v8', 'v9','v10','v11','v12'], 
-                        'test2.pdf', display=False, colors=get_color_fader('blue','black',7) ,
-                        et_bin=2, eta_bin=0, xmin=-0.005, xmax=0.02, ymin=0.980, ymax=1.005, fontsize=25)
-
-
-    for op in ['tight','medium','loose','vloose']:
-        cv_v10.dump_beamer_table( best_inits ,  [op], 
-                         'tuning_v11_'+op,
-                         title = op+' Tunings (v11)',
-                         #tags = ['v2 (SS)','v7 (Rings)', 'v8 (Rings)','v9 (Rings+SS)', 'v10 (Rings)','v11 (Rings+SS)'],
-                         tags = ['v2','v7','v8','v9','v10','v11','v12'],
-                         )
-    
-
-    #models = cv_v10.get_best_models(best_sorts_v10, remove_last=False)
-    #
-    #for op in ['Tight']:
-    #    format = 'data17_13TeV_EGAM1_probes_lhmedium_EGAM7_vetolhvloose.model_v10.electron'+op+'.et%d_eta%d'
-    #    output = "ElectronRinger%sTriggerConfig.conf"%op
-    #    cv_v10.convert_to_onnx( models, 'TrigL2_20200715_v10', 'v10', 'electron', format ,op ,output)
+    cv.plot_training_curves( best_inits, best_sorts, 'v11' )
 
 

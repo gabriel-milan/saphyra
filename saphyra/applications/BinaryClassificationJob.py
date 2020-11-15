@@ -51,6 +51,7 @@ class BinaryClassificationJob( Logger ):
     self.__class_weight  = retrieve_kw( kw, 'class_weight'   , False                 )
     self.__save_history  = retrieve_kw( kw, 'save_history'   , True                  )
     self.decorators      = retrieve_kw( kw, 'decorators'     , []                    )
+    self.plots           = retrieve_kw( kw, 'plots'          , []                    )
     self.__model_generator=retrieve_kw( kw, 'model_generator', None                  )
 
     # read the job configuration from file
@@ -238,6 +239,11 @@ class BinaryClassificationJob( Logger ):
           for tool in self.decorators:
             #MSG_INFO( self, "Executing the pos processor %s", tool.name() )
             tool.decorate( history, self.__context )
+
+          
+          for plot in self.plots:
+            plot( self.__context )
+
 
           # add the tuned parameters to the output file
           if self.__outputfile:
