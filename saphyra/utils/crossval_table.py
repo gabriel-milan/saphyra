@@ -266,7 +266,7 @@ class crossval_table( Logger ):
                 current_table = table.loc[table.sort==sort]
                 path=current_table.file_name.values[0]
                 history = load(path)['tunedData'][current_table.model_idx.values[0]]['history']
-                best_epoch = history['max_sp_best_epoch_val'][-1]
+                best_epoch = history['max_sp_best_epoch_val'][-1] - start_epoch
                 # Make the plot here
                 ax[idx, 0].set_xlabel('Epochs')
                 ax[idx, 0].set_ylabel('Loss (sort = %d)'%sort, color = 'r' if best_sort==sort else 'k')
