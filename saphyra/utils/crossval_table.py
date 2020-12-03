@@ -247,6 +247,14 @@ class crossval_table( Logger ):
                 json.dump(str(history), fp)
 
 
+    def get_model( self, path, index ):
+      tuned_list = load(path)['tunedData']
+      for tuned in tuned_list:
+        if tuned['imodel'] == index:
+          return tuned
+      MSG_FATAL( self, "It's not possible to find the history for model index %d", index )
+
+
 
 		#
 		# Plot the training curves for all sorts.
@@ -265,7 +273,8 @@ class crossval_table( Logger ):
             for idx, sort in enumerate(table.sort.unique()):
                 current_table = table.loc[table.sort==sort]
                 path=current_table.file_name.values[0]
-                history = load(path)['tunedData'][current_table.model_idx.values[0]]['history']
+                history = self.get_model( path, current_table.model_idx.values[0])['history']
+
                 best_epoch = history['max_sp_best_epoch_val'][-1] - start_epoch
                 # Make the plot here
                 ax[idx, 0].set_xlabel('Epochs')
@@ -301,7 +310,7 @@ class crossval_table( Logger ):
 		# Plot the training curves for all sorts.
 		#
     def plot_roc_curves( self, best_sorts, tags, legends, output, display=False, colors=None, points=None, et_bin=None, eta_bin=None, 
-                         xmin=-0.02, xmax=0.3, ymin=0.8, ymax=1.02, fontsize=18):
+                         xmin=-0.02, xmax=0.3, ymin=0.8, ymax=1.02, fontsize=18, figsize=(15,15)):
 
 
         def plot_roc_curves_for_each_bin(ax, table, colors, xmin=-0.02, xmax=0.3, ymin=0.8, ymax=1.02, fontsize=18):
@@ -312,10 +321,10 @@ class crossval_table( Logger ):
  
           for idx, tag in enumerate(tags):
               current_table = table.loc[(table.train_tag==tag)] 
-              path=current_table.file_name.values[0]
-              history = load(path)['tunedData'][current_table.model_idx.values[0]]['history']
-              pd, fa = history['summary']['rocs']['roc_op']
 
+              path=current_table.file_name.values[0]
+              history = self.get_model( path, current_table.model_idx.values[0])['history']
+              pd, fa = history['summary']['rocs']['roc_op']
               ax.plot( fa, pd, color=colors[idx], linewidth=2, label=tag)
               ax.set_ylim(ymin,ymax)
               ax.set_xlim(xmin,xmax)
@@ -325,7 +334,7 @@ class crossval_table( Logger ):
            
        
         if et_bin!=None and eta_bin!=None:
-            fig, ax = plt.subplots(1,1, figsize=(15,15))
+            fig, ax = plt.subplots(1,1, figsize=figsize)
             fig.suptitle(r'Operation ROCs', fontsize=15)
             table_for_this_bin = best_sorts.loc[(best_sorts.et_bin==et_bin) & (best_sorts.eta_bin==eta_bin)]
             plot_roc_curves_for_each_bin( ax, table_for_this_bin, colors, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fontsize=fontsize)
@@ -339,7 +348,7 @@ class crossval_table( Logger ):
 
             n_et_bins = len(best_sorts.et_bin.unique())
             n_eta_bins = len(best_sorts.eta_bin.unique())
-            fig, ax = plt.subplots(n_et_bins,n_eta_bins, figsize=(35,35))
+            fig, ax = plt.subplots(n_et_bins,n_eta_bins, figsize=figsize)
             fig.suptitle(r'Operation ROCs', fontsize=15)
 
             for et_bin in best_sorts.et_bin.unique():
@@ -545,8 +554,7 @@ class crossval_table( Logger ):
 
 
 
-    def convert_to_onnx( self, models, name, version, signature, model_output_format , operation, output):
-    
+    def convert_to_onnx( self, models, model_output_format , output):
     
         import onnx
         import keras2onnx
@@ -600,10 +608,10 @@ class crossval_table( Logger ):
         
         # Write the config file
         file = TEnv( 'ringer' )
-        file.SetValue( "__name__", name )
-        file.SetValue( "__version__", version )
-        file.SetValue( "__operation__", operation )
-        file.SetValue( "__signature__", signature )
+        file.SetValue( "__name__", 'should_be_filled' )
+        file.SetValue( "__version__", 'should_be_filled' )
+        file.SetValue( "__operation__", 'should_be_filled' )
+        file.SetValue( "__signature__", 'should_be_filled' )
         file.SetValue( "Model__size"  , str(len(models)) )
         file.SetValue( "Model__etmin" , list_to_str(model_etmin_vec) )
         file.SetValue( "Model__etmax" , list_to_str(model_etmax_vec) )
