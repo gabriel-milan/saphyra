@@ -554,10 +554,9 @@ class crossval_table( Logger ):
 
 
 
-    def convert_to_onnx( self, models, model_output_format , output):
+    def export( self, models, model_output_format , output, to_onnx=False):
     
-        import onnx
-        import keras2onnx
+
         from ROOT import TEnv
         
         model_etmin_vec = []
@@ -581,20 +580,24 @@ class crossval_table( Logger ):
             etaBinIdx = model['etaBinIdx']
         
             # Conver keras to Onnx
-            model['model'].summary()
-            onnx_model = keras2onnx.convert_keras(model['model'], model['model'].name)
+            #model['model'].summary()
+
         
-            onnx_model_name = model_output_format%( etBinIdx, etaBinIdx )
-            model_paths.append( onnx_model_name )
+            model_name = model_output_format%( etBinIdx, etaBinIdx )
+            model_paths.append( model_name )
         
             # Save onnx mode!
-            onnx.save_model(onnx_model, onnx_model_name+'.onnx')
-        
+            if to_onnx:
+                import onnx, keras2onnx
+                onnx_model = keras2onnx.convert_keras(model['model'], model['model'].name)
+                onnx.save_model(onnx_model, model_name+'.onnx')
+            
+
             model_json = model['model'].to_json()
-            with open(onnx_model_name+".json", "w") as json_file:
+            with open(model_name+".json", "w") as json_file:
                 json_file.write(model_json)
                 # saving the model weight separately
-                model['model'].save_weights(onnx_model_name+".h5")
+                model['model'].save_weights(model_name+".h5")
             
             slopes.append( 0.0 )
             offsets.append( 0.0 )
