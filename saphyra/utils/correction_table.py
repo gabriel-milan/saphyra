@@ -1,4 +1,6 @@
 
+from Gaugi.messenger import Logger
+from Gaugi.messenger.macros import *
 from Gaugi.monet.AtlasStyle import *
 from Gaugi.monet.PlotFunctions import *
 from Gaugi.monet.TAxisFunctions import *
@@ -9,25 +11,38 @@ from array import array
 from copy import deepcopy
 import time,os,math,sys,pprint,glob,warnings
 import numpy as np
+import pandas as pd
 import ROOT, math
 import ctypes
+import collections
 
 
+#
+# Correction class table
+#
 class correction_table(Logger):
 
-    def __init__(self, generator, etbins, etabins, x_bin_size, y_bin_size, ymin, ymax, ):
-
+    #
+    # Constructor
+    #
+    def __init__(self, generator, etbins, etabins, x_bin_size, y_bin_size, ymin, ymax, false_alarm_limit=0.5):
+        
+        Logger.__init__(self)
+        self.__generator = generator
         self.__etbins = etbins
         self.__etabins = etabins
         self.__ymin = ymin
         self.__ymax = ymax
         self.__x_bin_size = x_bin_size
         self.__y_bin_size = y_bin_size
+        self.__false_alarm_limit = false_alarm_limit
 
 
 
-
-    def fill( self, generator, paths, models, references ):
+    #
+    # Fill correction table 
+    #
+    def fill( self, data_paths,  models ):
 
 
         # make template dataframe
@@ -42,8 +57,8 @@ class correction_table(Logger):
                       'signal_total':[],
                       'signal_eff':[],
                       'background_passed':[],
-                      'backgrond_total':[],
-                      'backgrond_eff':[],
+                      'background_total':[],
+                      'background_eff':[],
                       'signal_corrected_passed':[],
                       'signal_corrected_total':[],
                       'signal_corrected_eff':[],
@@ -60,65 +75,75 @@ class correction_table(Logger):
 
 
         # Loop over all et/eta bins
-        for et_bin in range(paths):
-            for eta_bin in range(paths):
+        for et_bin in range(len(self.__etbins)-1):
+            for eta_bin in range(len(self.__etabins)-1):
 
-                path = paths[et_bin][eta_bin]
-                data, target, avgmu, references = generator(path)
+                path = data_paths[et_bin][eta_bin]
+                data, target, avgmu, references = self.__generator(path)
                 model = models[et_bin][eta_bin]
                 model['thresholds'] = {}
 
-                # Get output tensor and convert to numpy
-                outputs = model['model'](data).numpy()
+                # Get the predictions
+                outputs = model['model'].predict(data, batch_size=1024, verbose=1).flatten()
 
                 # Get all limits using the output
-                xmin = int(np.percentile(outputs , 0.2))
-                xmax = int(np.percentile(outputs, 0.98))
-                xbins = (xmax-xmin)/self.__x_bin_size
-                ybins = (self.__ymax-self.__ymin)/self.__y_bin_size
-
-
+                xmin = int(np.percentile(outputs , 1))
+                xmax = int(np.percentile(outputs, 99))
+                MSG_INFO(self, 'Setting xmin to %1.2f and xmax to %1.2f', xmin, xmax)
+                xbins = int((xmax-xmin)/self.__x_bin_size)
+                ybins = int((self.__ymax-self.__ymin)/self.__y_bin_size)
+                
+                # Fill 2D histograms
                 from ROOT import TH2F
-                th2_signal = TH2F( 'th2_signal', xbins, xmin, xmax, ybins, self.__ymin, self.__ymax )
-                th2_signal.FillN( outputs[target==1], avgmu[target==1], 1)
-                th2_background = TH2F( 'th2_background', xbins, xmin, xmax, ybins, self.__ymin, self.__ymax )
-                th2_background.FillN( outputs[target==0], avgmu[target==0], 1)
+                import array
+                th2_signal = TH2F( 'th2_signal_et%d_eta%d'%(et_bin,eta_bin), '', xbins, xmin, xmax, ybins, self.__ymin, self.__ymax )
+                w = array.array( 'd', np.ones_like( outputs[target==1] ) )
+                th2_signal.FillN( len(outputs[target==1]), array.array('d',  outputs[target==1].tolist()),  array.array('d',avgmu[target==1].tolist()), w)
+                th2_background = TH2F( 'th2_background_et%d_eta%d'%(et_bin,eta_bin), '', xbins,xmin, xmax, ybins, self.__ymin, self.__ymax )
+                w = array.array( 'd', np.ones_like( outputs[target==0] ) )
+                th2_background.FillN( len(outputs[target==0]), array.array('d',outputs[target==0].tolist()), array.array('d',avgmu[target==0].tolist()), w)
+
+                MSG_INFO( self, 'Apply correction to: et%d_eta%d', et_bin, eta_bin)
 
                 for name, ref in references.items():
 
-                    reference_num = ref['passed']
-                    reference_den = ref['total']
+                    reference_num = ref['signal_passed']
+                    reference_den = ref['signal_total']
                     target = reference_num/reference_den
 
 
                     false_alarm = 1.0
-                    while false_alarm > false_alarm_limit:
+                    while false_alarm > self.__false_alarm_limit:
 
-                        threshold = self.find_threshold( th2_signal.ProjectionX(), target )
+                        threshold, _ = self.find_threshold( th2_signal.ProjectionX(), target )
                         # Get the efficiency without linear adjustment
-                        eff, num, den = self.calculate_num_and_den(th2_signal, reference_eff, 0.0, target)
+                        signal_noadjustment_eff, signal_noadjustment_num, signal_noadjustment_den = \
+                                                                self.calculate_num_and_den(th2_signal, 0.0, threshold)
+                        background_noadjustment_eff, background_noadjustment_num, background_noadjustment_den = \
+                                                                self.calculate_num_and_den(th2_background, 0.0, threshold)
 
                         # Apply the linear adjustment and fix it in case of positive slope
-                        slope, offset = self.fit( th2_signal, value )
+                        slope, offset = self.fit( th2_signal, target )
                         slope = 0 if slope>0 else slope
                         offset = threshold if slope>0 else offset
                         if slope>0:
                           MSG_WARNING(self, "Retrieved positive angular factor of the linear correction, setting to 0!")
 
                         # Get the efficiency with linear adjustment
-                        signal_eff, signal_num, signal_den = self.calculate_num_and_den(th2_signal, target, slope, offset)
-                        background_eff, background_num, background_den = self.calculate_num_and_den(th2_background, target, slope, offset)
+                        signal_eff, signal_num, signal_den = self.calculate_num_and_den(th2_signal, slope, offset)
+                        background_eff, background_num, background_den = self.calculate_num_and_den(th2_background, slope, offset)
 
                         false_alarm = background_num/background_den # get the passed/total
 
-                        if false_alarm > false_alarm_limit:
+                        if false_alarm > self.__false_alarm_limit:
                             # Reduce the reference value by hand
                             value-=0.0025
 
+                    MSG_INFO( self, 'Reference name: %s, target: %1.2f%%', name, target*100 )
                     MSG_INFO( self, 'Signal with correction is: %1.2f%%', signal_num/signal_den * 100 )
                     MSG_INFO( self, 'Background with correction is: %1.2f%%', background_num/background_den * 100 )
 
-
+                    # decore the model array
                     model['thresholds'][name] = {'offset':offset, 'slope':slope, 'offset_noadjust' : threshold}
 
                     # Save some values into the main table
@@ -134,18 +159,27 @@ class correction_table(Logger):
                     add( 'background_passed'           , background_num )
                     add( 'background_total'            , background_den )
                     add( 'background_eff'              , background_num/background_den )
-                    add( 'signal_corrected_passed'     , signal_corrected_num )
-                    add( 'signal_corrected_total'      , signal_corrected_den )
-                    add( 'signal_corrected_eff'        , signal_corrected_num/signal_corrected_den )
-                    add( 'background_corrected_passed' , background_corrected_num )
-                    add( 'background_corrected_total'  , background_corrected_den )
-                    add( 'background_corrected_eff'    , background_corrected_num/background_corrected_den )
+                    #add( 'signal_corrected_passed'     , signal_corrected_num )
+                    #add( 'signal_corrected_total'      , signal_corrected_den )
+                    #add( 'signal_corrected_eff'        , signal_corrected_num/signal_corrected_den )
+                    #add( 'background_corrected_passed' , background_corrected_num )
+                    #add( 'background_corrected_total'  , background_corrected_den )
+                    #add( 'background_corrected_eff'    , background_corrected_num/background_corrected_den )
                     add( 'th2_signal'                  , th2_signal )
                     add( 'th2_background'              , th2_background )
 
+        
+        self.__table = pd.Dataframe( dataframe )
+        self.__table.head()
+
+   
+
+    
 
 
+    #
     # Export all models ringer
+    #
     def export( self, models, model_output_format , conf_output, reference_name, to_onnx=False):
 
 
@@ -230,8 +264,8 @@ class correction_table(Logger):
         if fullArea == 0:
             return 0,1
         notDetected = 0.0; i = 0
-        while 1. - notDetected > effref:
-            cutArea = hist.Integral(0,i)
+        while (1. - notDetected > effref):
+            cutArea = th1.Integral(0,i)
             i+=1
             prevNotDetected = notDetected
             notDetected = cutArea/fullArea
@@ -240,7 +274,7 @@ class correction_table(Logger):
         deltaEff = (eff - prevEff)
         threshold = th1.GetBinCenter(i-1)+(effref-prevEff)/deltaEff*(th1.GetBinCenter(i)-th1.GetBinCenter(i-1))
         error = 1./math.sqrt(fullArea)
-        return threshold
+        return threshold, error
 
     #
     # Get all points in the 2D histogram given a reference value
@@ -264,7 +298,7 @@ class correction_table(Logger):
     def fit(self, th2,effref):
         x_points, y_points, error_points = self.get_points(th2, effref )
         import array
-        g = ROOT.TGraphErrors( len(discr_points)
+        g = ROOT.TGraphErrors( len(x_points)
                              , array.array('d',y_points,)
                              , array.array('d',x_points)
                              , array.array('d',[0.]*len(x_points))
@@ -281,7 +315,7 @@ class correction_table(Logger):
     #
     # Calculate the numerator and denomitator given the 2D histogram and slope/offset parameters
     #
-    def calculate_num_and_den(th2, slope, offset) :
+    def calculate_num_and_den(self, th2, slope, offset) :
 
       nbinsy = th2.GetNbinsY()
       th1_num = th2.ProjectionY(th2.GetName()+'_proj'+str(time.time()),1,1)
@@ -322,86 +356,112 @@ class correction_table(Logger):
 
 
 
-#def Plot2DHist( chist, hist2D, a, b, discr_points, nvtx_points, error_points, outname, xlabel='',
-#                etBinIdx=None, etaBinIdx=None, etBins=None,etaBins=None):
-#
-#  from ROOT import TCanvas, gStyle, TLegend, kRed, kBlue, kBlack,TLine,kBird, kOrange,kGray
-#  from ROOT import TGraphErrors,TF1,TColor
-#  gStyle.SetPalette(kBird)
-#  ymax = chist.ymax(); ymin = chist.ymin()
-#  xmin = ymin; xmax = ymax
-#  drawopt='lpE2'
-#  canvas = TCanvas('canvas','canvas',500, 500)
-#  canvas.SetRightMargin(0.15)
-#  #hist2D.SetTitle('Neural Network output as a function of nvtx, '+partition_name)
-#  hist2D.GetXaxis().SetTitle('Neural Network output (Discriminant)')
-#  hist2D.GetYaxis().SetTitle(xlabel)
-#  hist2D.GetZaxis().SetTitle('Count')
-#  #if not removeOutputTansigTF:  hist2D.SetAxisRange(-1,1, 'X' )
-#  hist2D.Draw('colz')
-#  canvas.SetLogz()
-#  import array
-#  g1 = TGraphErrors(len(discr_points), array.array('d',discr_points), array.array('d',nvtx_points), array.array('d',error_points)
-#                   , array.array('d',[0]*len(discr_points)))
-#  g1.SetLineWidth(1)
-#  g1.SetLineColor(kBlue)
-#  g1.SetMarkerColor(kBlue)
-#  g1.Draw("P same")
-#  l3 = TLine(b+a*xmin,ymin, a*xmax+b, ymax)
-#  l3.SetLineColor(kBlack)
-#  l3.SetLineWidth(2)
-#  l3.Draw()
-#  AddTopLabels2( canvas, etlist=etBins,etalist=etaBins,etidx=etBinIdx,etaidx=etaBinIdx)
-#  FormatCanvasAxes(canvas, XLabelSize=16, YLabelSize=16, XTitleOffset=0.87, ZLabelSize=14,ZTitleSize=14, YTitleOffset=0.87, ZTitleOffset=1.1)
-#  SetAxisLabels(canvas,'Neural Network output (Discriminant)',xlabel)
-#  #AtlasTemplate1(canvas,atlaslabel='Internal')
-#  canvas.SaveAs(outname+'.pdf')
-#  canvas.SaveAs(outname+'.C')
-#  return outname+'.pdf'
-#
-#
-#
-#def PlotEff( chist, hist_eff, hist_eff_corr, refvalue, outname, xlabel=None, runLabel=None,
-#            etBinIdx=None, etaBinIdx=None, etBins=None,etaBins=None):
-#
-#  from ROOT import TCanvas, gStyle, TLegend, kRed, kBlue, kBlack,TLine,kBird, kOrange,kGray
-#  from ROOT import TGraphErrors,TF1,TColor
-#  gStyle.SetPalette(kBird)
-#  ymax = chist.ymax(); ymin = chist.ymin()
-#  xmin = ymin; xmax = ymax
-#  drawopt='lpE2'
-#
-#
-#  canvas = TCanvas('canvas','canvas',500, 500)
-#  #hist_eff.SetTitle('Signal Efficiency in: '+partition_name)
-#  hist_eff.SetLineColor(kGray+2)
-#  hist_eff.SetMarkerColor(kGray+2)
-#  hist_eff.SetFillColor(TColor.GetColorTransparent(kGray, .5))
-#  hist_eff_corr.SetLineColor(kBlue+1)
-#  hist_eff_corr.SetMarkerColor(kBlue+1)
-#  hist_eff_corr.SetFillColor(TColor.GetColorTransparent(kBlue+1, .5))
-#  AddHistogram(canvas,hist_eff,drawopt)
-#  AddHistogram(canvas,hist_eff_corr,drawopt)
-#  l0 = TLine(xmin,refvalue,xmax,refvalue)
-#  l0.SetLineColor(kBlack)
-#  l0.Draw()
-#  l1 = TLine(xmin,refvalue,xmax,refvalue)
-#  l1.SetLineColor(kGray+2)
-#  l1.SetLineStyle(9)
-#  l1.Draw()
-#  AddTopLabels1( canvas, ['Without correction','With correction'], runLabel=runLabel, legOpt='p',
-#                etlist=etBins,
-#                etalist=etaBins,
-#                etidx=etBinIdx,etaidx=etaBinIdx)
-#
-#  FormatCanvasAxes(canvas, XLabelSize=18, YLabelSize=18, XTitleOffset=0.87, YTitleOffset=1.5)
-#  SetAxisLabels(canvas,xlabel,'#epsilon('+xlabel+')')
-#  FixYaxisRanges(canvas, ignoreErrors=False,yminc=-eps)
-#  AutoFixAxes(canvas,ignoreErrors=False)
-#  AddBinLines(canvas,hist_eff)
-#  canvas.SaveAs(outname+'.pdf')
-#  canvas.SaveAs(outname+'.C')
-#  return outname+'.pdf'
+if __name__ == "__main__":
+
+    from saphyra.utils import crossval_table
+
+    def create_op_dict(op):
+        d = {
+                  op+'_pd_ref'    : "reference/"+op+"_cutbased/pd_ref#0",
+                  op+'_fa_ref'    : "reference/"+op+"_cutbased/fa_ref#0",
+                  op+'_sp_ref'    : "reference/"+op+"_cutbased/sp_ref",
+                  op+'_pd_val'    : "reference/"+op+"_cutbased/pd_val#0",
+                  op+'_fa_val'    : "reference/"+op+"_cutbased/fa_val#0",
+                  op+'_sp_val'    : "reference/"+op+"_cutbased/sp_val",
+                  op+'_pd_op'     : "reference/"+op+"_cutbased/pd_op#0",
+                  op+'_fa_op'     : "reference/"+op+"_cutbased/fa_op#0",
+                  op+'_sp_op'     : "reference/"+op+"_cutbased/sp_op",
+                
+                  # Counts
+                  op+'_pd_ref_passed'    : "reference/"+op+"_cutbased/pd_ref#1",
+                  op+'_fa_ref_passed'    : "reference/"+op+"_cutbased/fa_ref#1",
+                  op+'_pd_ref_total'     : "reference/"+op+"_cutbased/pd_ref#2",
+                  op+'_fa_ref_total'     : "reference/"+op+"_cutbased/fa_ref#2",   
+                  op+'_pd_val_passed'    : "reference/"+op+"_cutbased/pd_val#1",
+                  op+'_fa_val_passed'    : "reference/"+op+"_cutbased/fa_val#1",
+                  op+'_pd_val_total'     : "reference/"+op+"_cutbased/pd_val#2",
+                  op+'_fa_val_total'     : "reference/"+op+"_cutbased/fa_val#2",  
+                  op+'_pd_op_passed'     : "reference/"+op+"_cutbased/pd_op#1",
+                  op+'_fa_op_passed'     : "reference/"+op+"_cutbased/fa_op#1",
+                  op+'_pd_op_total'      : "reference/"+op+"_cutbased/pd_op#2",
+                  op+'_fa_op_total'      : "reference/"+op+"_cutbased/fa_op#2",
+        } 
+        return d
+    
+    
+    tuned_info = collections.OrderedDict( {
+                  # validation
+                  "max_sp_val"      : 'summary/max_sp_val',
+                  "max_sp_pd_val"   : 'summary/max_sp_pd_val#0',
+                  "max_sp_fa_val"   : 'summary/max_sp_fa_val#0',
+                  # Operation
+                  "max_sp_op"       : 'summary/max_sp_op',
+                  "max_sp_pd_op"    : 'summary/max_sp_pd_op#0',
+                  "max_sp_fa_op"    : 'summary/max_sp_fa_op#0',
+                  } )
+    
+    tuned_info.update(create_op_dict('tight'))
+    tuned_info.update(create_op_dict('medium'))
+    tuned_info.update(create_op_dict('loose'))
+    tuned_info.update(create_op_dict('vloose'))
+    
+    
+    etbins = [15,20,30,40,50,100000]
+    etabins = [0, 0.8 , 1.37, 1.54, 2.37, 2.5]
+
+    cv  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
+    #cv.fill( '/home/jodafons/public/tunings/v10/*.r2/*/*.gz', 'v10')
+    #cv.to_csv( 'v10.csv' )
+    cv.from_csv( 'v10.csv' )
+    best_inits = cv.filter_inits("max_sp_val")
+    best_inits = best_inits.loc[(best_inits.model_idx==0)]
+    best_sorts = cv.filter_sorts(best_inits, 'max_sp_val')
+    best_models = cv.get_best_models(best_sorts, remove_last=True)
+
+
+    
+    #
+    # Generator to read, prepare data and get all references
+    #
+    def generator( path ):
+
+        def norm1( data ):
+            norms = np.abs( data.sum(axis=1) )
+            norms[norms==0] = 1
+            return data/norms[:,None]
+        from Gaugi import load
+        import numpy as np
+        d = load(path)
+        feature_names = d['features'].tolist()
+        data = norm1(d['data'][:,1:101])
+        target = d['target']
+        avgmu = d['data'][:,0]
+        references = ['T0HLTElectronT2CaloTight','T0HLTElectronT2CaloMedium','T0HLTElectronT2CaloLoose','T0HLTElectronT2CaloVLoose']
+        ref_dict = {}
+        for ref in references:
+            answers = d['data'][:, feature_names.index(ref)]
+            signal_passed = sum(answers[target==1])
+            signal_total = len(answers[target==1])
+            background_passed = sum(answers[target==0])
+            background_total = sum(answers[target==0])
+            pd = signal_passed/signal_total
+            fa = background_passed/background_total
+            ref_dict[ref] = {'signal_passed': signal_passed, 'signal_total': signal_total, 'pd' : pd,
+                             'background_passed': background_passed, 'background_total': background_total, 'fa': fa}
+
+        return data, target, avgmu, ref_dict
+
+
+    
+    path = '~/public/cern_data/files/Zee/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97_et{ET}_eta{ETA}.npz'
+
+    paths = [[ path.format(ET=et,ETA=eta) for eta in range(5)] for et in range(5)]
+
+    # get best models
+
+    ct  = correction_table( generator, etbins , etabins, 0.02, 0.5, 16, 70 )
+    ct.fill(paths, best_models)
+
 
 
 
