@@ -4,16 +4,15 @@ from Gaugi.messenger.macros import *
 from Gaugi.monet.AtlasStyle import *
 from Gaugi.monet.PlotFunctions import *
 from Gaugi.monet.TAxisFunctions import *
+from Gaugi.monet import *
+from Gaugi.tex import *
 
 from ROOT import kBlack,kBlue,kRed,kAzure,kGreen,kMagenta,kCyan,kOrange,kGray,kYellow,kWhite
-from Gaugi.monet import *
-from array import array
-from copy import deepcopy
-import time,os,math,sys,pprint,glob,warnings
+
 import numpy as np
 import pandas as pd
 import ROOT, math
-import ctypes
+import time
 import collections
 
 
@@ -27,6 +26,7 @@ class correction_table(Logger):
     #
     def __init__(self, generator, etbins, etabins, x_bin_size, y_bin_size, ymin, ymax, false_alarm_limit=0.5):
         
+        # init base class
         Logger.__init__(self)
         self.__generator = generator
         self.__etbins = etbins
@@ -48,11 +48,14 @@ class correction_table(Logger):
         # make template dataframe
         dataframe = collections.OrderedDict({
                       'name':[],
-                      'reference_passed':[],
-                      'reference_total':[],
-                      'reference_eff':[],
                       'et_bin':[],
                       'eta_bin':[],
+                      'reference_signal_passed':[],
+                      'reference_signal_total':[],
+                      'reference_signal_eff':[],
+                      'reference_background_passed':[],
+                      'reference_background_total':[],
+                      'reference_background_eff':[],
                       'signal_passed':[],
                       'signal_total':[],
                       'signal_eff':[],
@@ -65,8 +68,8 @@ class correction_table(Logger):
                       'background_corrected_passed':[],
                       'background_corrected_total':[],
                       'background_corrected_eff':[],
-                      'th2_signal':[],
-                      'th2_background':[]
+                      #'th2_signal':[],
+                      #'th2_background':[]
                      })
 
         # reduce verbose
@@ -89,6 +92,7 @@ class correction_table(Logger):
                 # Get all limits using the output
                 xmin = int(np.percentile(outputs , 1))
                 xmax = int(np.percentile(outputs, 99))
+
                 MSG_INFO(self, 'Setting xmin to %1.2f and xmax to %1.2f', xmin, xmax)
                 xbins = int((xmax-xmin)/self.__x_bin_size)
                 ybins = int((self.__ymax-self.__ymin)/self.__y_bin_size)
@@ -107,20 +111,20 @@ class correction_table(Logger):
 
                 for name, ref in references.items():
 
-                    reference_num = ref['signal_passed']
-                    reference_den = ref['signal_total']
-                    target = reference_num/reference_den
+                    reference_signal_num = ref['signal_passed']
+                    reference_signal_den = ref['signal_total']
+                    target = reference_signal_num/reference_signal_den
 
 
                     false_alarm = 1.0
                     while false_alarm > self.__false_alarm_limit:
 
+                        # Get the threshold when we not apply any linear correction
                         threshold, _ = self.find_threshold( th2_signal.ProjectionX(), target )
+
                         # Get the efficiency without linear adjustment
-                        signal_noadjustment_eff, signal_noadjustment_num, signal_noadjustment_den = \
-                                                                self.calculate_num_and_den(th2_signal, 0.0, threshold)
-                        background_noadjustment_eff, background_noadjustment_num, background_noadjustment_den = \
-                                                                self.calculate_num_and_den(th2_background, 0.0, threshold)
+                        signal_eff, signal_num, signal_den = self.calculate_num_and_den(th2_signal, 0.0, threshold)
+                        background_eff, background_num, background_den = self.calculate_num_and_den(th2_background, 0.0, threshold)
 
                         # Apply the linear adjustment and fix it in case of positive slope
                         slope, offset = self.fit( th2_signal, target )
@@ -130,51 +134,217 @@ class correction_table(Logger):
                           MSG_WARNING(self, "Retrieved positive angular factor of the linear correction, setting to 0!")
 
                         # Get the efficiency with linear adjustment
-                        signal_eff, signal_num, signal_den = self.calculate_num_and_den(th2_signal, slope, offset)
-                        background_eff, background_num, background_den = self.calculate_num_and_den(th2_background, slope, offset)
+                        signal_corrected_eff, signal_corrected_num, signal_corrected_den = self.calculate_num_and_den(th2_signal, slope, offset)
+                        background_corrected_eff, background_corrected_num, background_corrected_den = self.calculate_num_and_den(th2_background, slope, offset)
 
-                        false_alarm = background_num/background_den # get the passed/total
+                        false_alarm = background_corrected_num/background_corrected_den # get the passed/total
 
                         if false_alarm > self.__false_alarm_limit:
                             # Reduce the reference value by hand
                             value-=0.0025
 
                     MSG_INFO( self, 'Reference name: %s, target: %1.2f%%', name, target*100 )
-                    MSG_INFO( self, 'Signal with correction is: %1.2f%%', signal_num/signal_den * 100 )
-                    MSG_INFO( self, 'Background with correction is: %1.2f%%', background_num/background_den * 100 )
+                    MSG_INFO( self, 'Signal with correction is: %1.2f%%', signal_corrected_num/signal_corrected_den * 100 )
+                    MSG_INFO( self, 'Background with correction is: %1.2f%%', background_corrected_num/background_corrected_den * 100 )
 
                     # decore the model array
                     model['thresholds'][name] = {'offset':offset, 'slope':slope, 'offset_noadjust' : threshold}
 
-                    # Save some values into the main table
+                    # et/eta bin information
                     add( 'name'                        , name )
                     add( 'et_bin'                      , et_bin  )
                     add( 'eta_bin'                     , eta_bin )
-                    add( 'reference_passed'            , reference_num )
-                    add( 'reference_total'             , reference_den )
-                    add( 'reference_eff'               , reference_num/reference_den )
+                    # reference values
+                    add( 'reference_signal_passed'     , reference_signal_num )
+                    add( 'reference_signal_total'      , reference_signal_den )
+                    add( 'reference_signal_eff'        , target               )
+                    add( 'reference_background_passed' , ref['background_passed'] )
+                    add( 'reference_background_total'  , ref['background_total'] )
+                    add( 'reference_background_eff'    , ref['fa'] )
+                    # non-corrected values
                     add( 'signal_passed'               , signal_num )
                     add( 'signal_total'                , signal_den )
                     add( 'signal_eff'                  , signal_num/signal_den )
                     add( 'background_passed'           , background_num )
                     add( 'background_total'            , background_den )
                     add( 'background_eff'              , background_num/background_den )
-                    #add( 'signal_corrected_passed'     , signal_corrected_num )
-                    #add( 'signal_corrected_total'      , signal_corrected_den )
-                    #add( 'signal_corrected_eff'        , signal_corrected_num/signal_corrected_den )
-                    #add( 'background_corrected_passed' , background_corrected_num )
-                    #add( 'background_corrected_total'  , background_corrected_den )
-                    #add( 'background_corrected_eff'    , background_corrected_num/background_corrected_den )
-                    add( 'th2_signal'                  , th2_signal )
-                    add( 'th2_background'              , th2_background )
+                    # corrected values
+                    add( 'signal_corrected_passed'     , signal_corrected_num )
+                    add( 'signal_corrected_total'      , signal_corrected_den )
+                    add( 'signal_corrected_eff'        , signal_corrected_num/signal_corrected_den )
+                    add( 'background_corrected_passed' , background_corrected_num )
+                    add( 'background_corrected_total'  , background_corrected_den )
+                    add( 'background_corrected_eff'    , background_corrected_num/background_corrected_den )
+                    # ROOT objects for plot maker
+                    #add( 'th2_signal'                  , th2_signal )
+                    #add( 'th2_background'              , th2_background )
 
         
-        self.__table = pd.Dataframe( dataframe )
-        self.__table.head()
+        self.__table = pd.DataFrame( dataframe )
+        print(self.__table.head())
 
-   
 
-    
+    def table(self):
+        return self.__table
+
+    #
+    # Dump bearmer report
+    #
+    def dump_beamer_table( self, table, title, output ):
+
+
+        # Slide maker
+        with BeamerTexReportTemplate1( theme = 'Berlin'
+                                     , _toPDF = True
+                                     , title = title
+                                     , outputFile = output
+                                     , font = 'structurebold' ):
+        
+            # Create Latex Et bins
+            etbins_str = []; etabins_str = []
+            for etBinIdx in range(len(self.__etbins)-1):
+                etbin = (self.__etbins[etBinIdx], self.__etbins[etBinIdx+1])
+                if etbin[1] > 100 :
+                    etbins_str.append( r'$E_{T}\text{[GeV]} > %d$' % etbin[0])
+                else:
+                    etbins_str.append(  r'$%d < E_{T} \text{[Gev]}<%d$'%etbin )
+      
+            # Create Latex eta bins
+            for etaBinIdx in range( len(self.__etabins)-1 ):
+                etabin = (self.__etabins[etaBinIdx], self.__etabins[etaBinIdx+1])
+                etabins_str.append( r'$%.2f<\eta<%.2f$'%etabin )
+
+
+            for name in table.name.unique():
+                print(name)
+                with BeamerSection( name = name.replace('_','\_') ):
+
+                    """
+                    # prepare figures
+                    with BeamerSubSection( name = 'Correction plots for each phase space'):
+
+                        for etBinIdx in range( len(self.__etbins)-1 ):
+
+                            for etaBinIdx in range( len(self.__etabins)-1 ):
+
+                                # NOTE: Make beamer multi figure slide here for each bin
+                                pass
+                    """
+                    # prepate table
+                    with BeamerSubSection( name = 'Efficiency Values' ):
+
+                        # Prepare phase space table
+                        lines1 = []
+                        lines1 += [ HLine(_contextManaged = False) ]
+                        lines1 += [ HLine(_contextManaged = False) ]
+                        lines1 += [ TableLine( columns = [''] + [s for s in etabins_str], _contextManaged = False ) ]
+                        lines1 += [ HLine(_contextManaged = False) ]
+
+                        for etBinIdx in range( len(self.__etbins)-1 ):
+                            
+                            values_det = []; values_fa = []
+                            for etaBinIdx in range( len(self.__etabins)-1 ):
+                                print('aki')
+                                # Get the current bin table
+                                print(table)
+                                print(table.head())
+                                current_table = table.loc[ (table.name==name) & (table.et_bin==etBinIdx) & (table.eta_bin==etaBinIdx)]
+                                det = current_table.signal_corrected_eff.values[0] * 100
+                                fa = current_table.background_corrected_eff.values[0] * 100
+
+                                # Get reference pd
+                                ref = current_table.reference_signal_eff.values[0] * 100
+                                
+                                if (det-ref) > 0.0:
+                                    values_det.append( ('\\cellcolor[HTML]{9AFF99}%1.2f ($\\uparrow$%1.2f[$\\Delta_{ref}$])')%(det,det-ref) )
+                                elif (det-ref) < 0.0:
+                                    values_det.append( ('\\cellcolor[HTML]{F28871}%1.2f ($\\downarrow$%1.2f[$\\Delta_{ref}$])')%(det,det-ref) )
+                                else:
+                                    values_det.append( ('\\cellcolor[HTML]{9AFF99}%1.2f')%(det) )
+
+                                ref = current_table.reference_background_eff.values[0] * 100
+
+                                factor = fa/ref if ref else 0.
+                                if (fa-ref) > 0.0:
+                                    values_fa.append( ('\\cellcolor[HTML]{F28871}%1.2f ($\\rightarrow$%1.2f$\\times\\text{FR}_{ref}$)')%(fa,factor) )
+                                elif (fa-ref) < 0.0:
+                                    values_fa.append( ('\\cellcolor[HTML]{9AFF99}%1.2f ($\\rightarrow$%1.2f$\\times\\text{FR}_{ref}$)')%(fa,factor) )
+                                else:
+                                    values_fa.append( ('\\cellcolor[HTML]{9AFF99}%1.2f')%(fa) )
+
+                            lines1 += [ TableLine( columns = [etbins_str[etBinIdx]] + values_det   , _contextManaged = False ) ]
+                            lines1 += [ TableLine( columns = [''] + values_fa , _contextManaged = False ) ]
+                            lines1 += [ HLine(_contextManaged = False) ]
+                        lines1 += [ HLine(_contextManaged = False) ]
+
+
+                        # Prepare integrated table
+                        lines2 = []
+                        lines2 += [ HLine(_contextManaged = False) ]
+                        lines2 += [ HLine(_contextManaged = False) ]
+                        lines2 += [ TableLine( columns = ['',r'$P_{D}[\%]$',r'$F_{a}[\%]$'], _contextManaged = False ) ]
+                        lines2 += [ HLine(_contextManaged = False) ]
+                        current_table = table.loc[table.name==name]
+
+                        # Get reference values
+                        passed_fa = table.reference_background_passed.sum()
+                        total_fa = table.reference_background_total.sum()
+                        fa = passed_fa/total_fa * 100
+                        passed_det = current_table.reference_signal_passed.sum()
+                        total_det = current_table.reference_signal_total.sum()
+                        det = passed_det/total_det * 100
+
+                        lines2 += [ TableLine( columns = ['Reference','%1.2f (%d/%d)'%(det,passed_det,total_det),
+                                              '%1.2f (%d/%d)'%(fa,passed_fa,total_fa)]  , _contextManaged = False ) ]
+
+
+                        # Get corrected values
+                        passed_fa = current_table.background_corrected_passed.sum()
+                        total_fa = current_table.background_corrected_total.sum()
+                        fa = passed_fa/total_fa * 100
+                        passed_det = current_table.signal_corrected_passed.sum()
+                        total_det = current_table.signal_corrected_total.sum()
+                        det = passed_det/total_det * 100
+
+                        lines2 += [ TableLine( columns = [name.replace('_','\_'),'%1.2f (%d/%d)'%(det,passed_det,total_det),
+                                              '%1.2f (%d/%d)'%(fa,passed_fa,total_fa)]  , _contextManaged = False ) ]
+
+                        # Get non-corrected values
+                        passed_fa = current_table.background_passed.sum()
+                        total_fa = current_table.background_total.sum()
+                        fa = passed_fa/total_fa * 100
+                        passed_det = current_table.signal_passed.sum()
+                        total_det = current_table.signal_total.sum()
+                        det = passed_det/total_det * 100
+
+                        lines2 += [ TableLine( columns = [name.replace('_','\_')+' (not corrected)','%1.2f (%d/%d)'%(det,passed_det,total_det),
+                                                '%1.2f (%d/%d)'%(fa,passed_fa,total_fa)]  , _contextManaged = False ) ]
+
+                        lines2 += [ HLine(_contextManaged = False) ]
+                        lines2 += [ HLine(_contextManaged = False) ]
+                        """
+                        with BeamerSlide( title = "Efficiency Values After Correction"  ):
+                            with Table( caption = '$P_{d}$ and $F_{a}$ for all phase space regions.') as _table:
+                                with ResizeBox( size = 1 ) as rb:
+                                    with Tabular( columns = 'l' + 'c' * len(etabins_str) ) as tabular:
+                                        tabular = tabular
+                                        for line in lines1:
+                                            if isinstance(line, TableLine):
+                                                tabular += line
+                                            else:
+                                                TableLine(line, rounding = None)
+                            with Table( caption = 'Integrated efficiency comparison.') as _table:
+                                with ResizeBox( size = 0.6 ) as rb:
+                                    with Tabular( columns = 'l' + 'c' * 3 ) as tabular:
+                                        tabular = tabular
+                                        for line in lines2:
+                                            if isinstance(line, TableLine):
+                                                tabular += line
+                                            else:
+                                                TableLine(line, rounding = None)
+                            """
+
+
 
 
     #
@@ -458,9 +628,15 @@ if __name__ == "__main__":
     paths = [[ path.format(ET=et,ETA=eta) for eta in range(5)] for et in range(5)]
 
     # get best models
-
+    etbins = [15,20]
+    etabins = [0, 0.8]
     ct  = correction_table( generator, etbins , etabins, 0.02, 0.5, 16, 70 )
     ct.fill(paths, best_models)
+
+
+    table = ct.table()
+    ct.dump_beamer_table(table, 'test', 'test')
+    
 
 
 
