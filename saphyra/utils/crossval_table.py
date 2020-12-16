@@ -533,7 +533,7 @@ class crossval_table( Logger ):
         from tensorflow.keras.models import Model, model_from_json
         import json
         
-        models = []
+        models = [[ None for _ in range(len(self.__etabins)-1)] for __ in range(len(self.__etbins)-1)]
         for et_bin in range(len(self.__etbins)-1):
             for eta_bin in range(len(self.__etabins)-1):
                 d_tuned = {}
@@ -549,7 +549,7 @@ class crossval_table( Logger ):
                 d_tuned['etBinIdx'] = et_bin
                 d_tuned['etaBinIdx']= eta_bin
                 d_tuned['history']  = tuned['history']
-                models.append(d_tuned)
+                models[et_bin][eta_bin] = d_tuned
         return models
 
 
