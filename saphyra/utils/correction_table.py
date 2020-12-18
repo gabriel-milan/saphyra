@@ -452,9 +452,8 @@ class correction_table(Logger):
     #
     def export( self, models, model_output_format , conf_output, reference_name, to_onnx=False):
 
-
         from ROOT import TEnv
-
+        
         model_etmin_vec = []
         model_etmax_vec = []
         model_etamin_vec = []
