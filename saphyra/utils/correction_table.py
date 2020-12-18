@@ -1,33 +1,93 @@
 
-from Gaugi.messenger import Logger
+#
+# DISCLAIMER: You should have root installed at your system to use it.
+#
+
+__all__ = ['correction_table', 'Plot2DHist']
+
+from Gaugi.messenger import Logger, LoggingLevel
 from Gaugi.messenger.macros import *
+from Gaugi.tex import *
 from Gaugi.monet.AtlasStyle import *
 from Gaugi.monet.PlotFunctions import *
 from Gaugi.monet.TAxisFunctions import *
-from Gaugi.monet import *
-from Gaugi.tex import *
 
-from ROOT import kBlack,kBlue,kRed,kAzure,kGreen,kMagenta,kCyan,kOrange,kGray,kYellow,kWhite
 
+from copy import copy
 import numpy as np
-import pandas as pd
-import ROOT, math
+import pandas
 import time
 import collections
+import os
+
+
+
 
 
 #
-# Correction class table
+# Plot 2D histogram function based on ROOT
+#
+def Plot2DHist( th2, slope, offset, x_points, y_points, error_points, outname, xlabel='',
+            etBinIdx=None, etaBinIdx=None, etBins=None,etaBins=None):
+
+    from ROOT import TCanvas, gStyle, TLegend, kRed, kBlue, kBlack,TLine,kBird, kOrange,kGray
+    from ROOT import TGraphErrors,TF1,TColor
+    import array
+
+    def AddTopLabels(can, etlist = None, etalist = None, etidx = None, etaidx = None, logger=None):
+
+        extraText = [GetAtlasInternalText()]
+        if etlist and etidx is not None:
+            etlist=copy(etlist)
+            if etlist[-1]>9999:  etlist[-1]='#infty'
+            binEt = (str(etlist[etidx]) + ' < E_{T} [GeV] < ' + str(etlist[etidx+1]) if etidx+1 < len(etlist) else
+                                     'E_{T} > ' + str(etlist[etidx]) + ' GeV')
+            extraText.append(binEt)
+        if etalist and etaidx is not None:
+            binEta = (str(etalist[etaidx]) + ' < #eta < ' + str(etalist[etaidx+1]) if etaidx+1 < len(etalist) else
+                                        str(etalist[etaidx]) + ' < #eta < 2.47')
+            extraText.append(binEta)
+        DrawText(can,extraText,.14,.68,.35,.93,totalentries=4)
+
+    gStyle.SetPalette(kBird)
+    drawopt='lpE2'
+    canvas = TCanvas('canvas','canvas',500, 500)
+    canvas.SetRightMargin(0.15)
+    th2.GetXaxis().SetTitle('Neural Network output (Discriminant)')
+    th2.GetYaxis().SetTitle(xlabel)
+    th2.GetZaxis().SetTitle('Count')
+    th2.Draw('colz')
+    canvas.SetLogz()
+    g = TGraphErrors(len(x_points), array.array('d',x_points), array.array('d',y_points), array.array('d',error_points), array.array('d',[0]*len(x_points)))
+    g.SetLineWidth(1)
+    g.SetLineColor(kBlue)
+    g.SetMarkerColor(kBlue)
+    g.Draw("P same")
+    line = TLine(slope*th2.GetYaxis().GetXmin()+offset,th2.GetYaxis().GetXmin(), slope*th2.GetYaxis().GetXmax()+offset, th2.GetYaxis().GetXmax())
+    line.SetLineColor(kBlack)
+    line.SetLineWidth(2)
+    line.Draw()
+    AddTopLabels( canvas, etlist=etBins,etalist=etaBins,etidx=etBinIdx,etaidx=etaBinIdx)
+    FormatCanvasAxes(canvas, XLabelSize=16, YLabelSize=16, XTitleOffset=0.87, ZLabelSize=14,ZTitleSize=14, YTitleOffset=0.87, ZTitleOffset=1.1)
+    SetAxisLabels(canvas,'Neural Network output (Discriminant)',xlabel)
+    canvas.SaveAs(outname+'.pdf')
+    canvas.SaveAs(outname+'.C')
+    return outname+'.pdf'
+
+
+
+#
+# Linear correction class table
 #
 class correction_table(Logger):
 
     #
     # Constructor
     #
-    def __init__(self, generator, etbins, etabins, x_bin_size, y_bin_size, ymin, ymax, false_alarm_limit=0.5):
-        
+    def __init__(self, generator, etbins, etabins, x_bin_size, y_bin_size, ymin, ymax, false_alarm_limit=0.5, level=LoggingLevel.INFO):
+
         # init base class
-        Logger.__init__(self)
+        Logger.__init__(self, level=level)
         self.__generator = generator
         self.__etbins = etbins
         self.__etabins = etabins
@@ -40,9 +100,9 @@ class correction_table(Logger):
 
 
     #
-    # Fill correction table 
+    # Fill correction table
     #
-    def fill( self, data_paths,  models ):
+    def fill( self, data_paths,  models, reference_values ):
 
 
         # make template dataframe
@@ -68,8 +128,6 @@ class correction_table(Logger):
                       'background_corrected_passed':[],
                       'background_corrected_total':[],
                       'background_corrected_eff':[],
-                      #'th2_signal':[],
-                      #'th2_background':[]
                      })
 
         # reduce verbose
@@ -82,7 +140,9 @@ class correction_table(Logger):
             for eta_bin in range(len(self.__etabins)-1):
 
                 path = data_paths[et_bin][eta_bin]
-                data, target, avgmu, references = self.__generator(path)
+                data, target, avgmu, _ = self.__generator(path)
+                references = reference_values[et_bin][eta_bin]
+
                 model = models[et_bin][eta_bin]
                 model['thresholds'] = {}
 
@@ -93,10 +153,10 @@ class correction_table(Logger):
                 xmin = int(np.percentile(outputs , 1))
                 xmax = int(np.percentile(outputs, 99))
 
-                MSG_INFO(self, 'Setting xmin to %1.2f and xmax to %1.2f', xmin, xmax)
+                MSG_DEBUG(self, 'Setting xmin to %1.2f and xmax to %1.2f', xmin, xmax)
                 xbins = int((xmax-xmin)/self.__x_bin_size)
                 ybins = int((self.__ymax-self.__ymin)/self.__y_bin_size)
-                
+
                 # Fill 2D histograms
                 from ROOT import TH2F
                 import array
@@ -107,14 +167,11 @@ class correction_table(Logger):
                 w = array.array( 'd', np.ones_like( outputs[target==0] ) )
                 th2_background.FillN( len(outputs[target==0]), array.array('d',outputs[target==0].tolist()), array.array('d',avgmu[target==0].tolist()), w)
 
-                MSG_INFO( self, 'Apply correction to: et%d_eta%d', et_bin, eta_bin)
+                MSG_INFO( self, 'Applying linear correction to et%d_eta%d bin.', et_bin, eta_bin)
 
                 for name, ref in references.items():
 
-                    reference_signal_num = ref['signal_passed']
-                    reference_signal_den = ref['signal_total']
-                    target = reference_signal_num/reference_signal_den
-
+                    target = ref['pd']
 
                     false_alarm = 1.0
                     while false_alarm > self.__false_alarm_limit:
@@ -127,7 +184,7 @@ class correction_table(Logger):
                         background_eff, background_num, background_den = self.calculate_num_and_den(th2_background, 0.0, threshold)
 
                         # Apply the linear adjustment and fix it in case of positive slope
-                        slope, offset = self.fit( th2_signal, target )
+                        slope, offset, x_points, y_points, error_points = self.fit( th2_signal, target )
                         slope = 0 if slope>0 else slope
                         offset = threshold if slope>0 else offset
                         if slope>0:
@@ -143,23 +200,24 @@ class correction_table(Logger):
                             # Reduce the reference value by hand
                             value-=0.0025
 
-                    MSG_INFO( self, 'Reference name: %s, target: %1.2f%%', name, target*100 )
-                    MSG_INFO( self, 'Signal with correction is: %1.2f%%', signal_corrected_num/signal_corrected_den * 100 )
-                    MSG_INFO( self, 'Background with correction is: %1.2f%%', background_corrected_num/background_corrected_den * 100 )
+                    MSG_DEBUG( self, 'Reference name: %s, target: %1.2f%%', name, target*100 )
+                    MSG_DEBUG( self, 'Signal with correction is: %1.2f%%', signal_corrected_num/signal_corrected_den * 100 )
+                    MSG_DEBUG( self, 'Background with correction is: %1.2f%%', background_corrected_num/background_corrected_den * 100 )
 
                     # decore the model array
-                    model['thresholds'][name] = {'offset':offset, 'slope':slope, 'offset_noadjust' : threshold}
+                    model['thresholds'][name] = {'offset':offset, 'slope':slope, 'threshold' : threshold, 'th2_signal':th2_signal, 'th2_background':th2_background,
+																								 'x_points':x_points, 'y_points':y_points, 'error_points':error_points, 'reference_pd': ref['pd'], 'reference_fa':ref['fa']}
 
                     # et/eta bin information
                     add( 'name'                        , name )
                     add( 'et_bin'                      , et_bin  )
                     add( 'eta_bin'                     , eta_bin )
                     # reference values
-                    add( 'reference_signal_passed'     , reference_signal_num )
-                    add( 'reference_signal_total'      , reference_signal_den )
-                    add( 'reference_signal_eff'        , target               )
-                    add( 'reference_background_passed' , ref['background_passed'] )
-                    add( 'reference_background_total'  , ref['background_total'] )
+                    add( 'reference_signal_passed'     , int(ref['pd']*signal_den) )
+                    add( 'reference_signal_total'      , signal_den )
+                    add( 'reference_signal_eff'        , ref['pd'] )
+                    add( 'reference_background_passed' , int(ref['fa']*background_den) )
+                    add( 'reference_background_total'  , background_den )
                     add( 'reference_background_eff'    , ref['fa'] )
                     # non-corrected values
                     add( 'signal_passed'               , signal_num )
@@ -175,31 +233,45 @@ class correction_table(Logger):
                     add( 'background_corrected_passed' , background_corrected_num )
                     add( 'background_corrected_total'  , background_corrected_den )
                     add( 'background_corrected_eff'    , background_corrected_num/background_corrected_den )
-                    # ROOT objects for plot maker
-                    #add( 'th2_signal'                  , th2_signal )
-                    #add( 'th2_background'              , th2_background )
 
-        
-        self.__table = pd.DataFrame( dataframe )
-        print(self.__table.head())
+        # convert to pandas dataframe
+        self.__table = pandas.DataFrame( dataframe )
 
 
+    #
+    # Get the pandas table
+    #
     def table(self):
         return self.__table
+
 
     #
     # Dump bearmer report
     #
-    def dump_beamer_table( self, table, title, output ):
+    def dump_beamer_table( self, table, models, title, output_pdf, output_dir ):
 
+
+        from Gaugi.monet.AtlasStyle import SetAtlasStyle
+        SetAtlasStyle()
+        from ROOT import gROOT, kTRUE
+        gROOT.SetBatch(kTRUE)
+        import ROOT
+        ROOT.gErrorIgnoreLevel=ROOT.kFatal
+
+        # create directory
+        localpath = os.getcwd()+'/'+output_dir
+        try:
+            if not os.path.exists(localpath): os.makedirs(localpath)
+        except:
+            MSG_WARNING( self,'The director %s exist.', localpath)
 
         # Slide maker
         with BeamerTexReportTemplate1( theme = 'Berlin'
                                      , _toPDF = True
                                      , title = title
-                                     , outputFile = output
+                                     , outputFile = output_pdf
                                      , font = 'structurebold' ):
-        
+
             # Create Latex Et bins
             etbins_str = []; etabins_str = []
             for etBinIdx in range(len(self.__etbins)-1):
@@ -208,7 +280,7 @@ class correction_table(Logger):
                     etbins_str.append( r'$E_{T}\text{[GeV]} > %d$' % etbin[0])
                 else:
                     etbins_str.append(  r'$%d < E_{T} \text{[Gev]}<%d$'%etbin )
-      
+
             # Create Latex eta bins
             for etaBinIdx in range( len(self.__etabins)-1 ):
                 etabin = (self.__etabins[etaBinIdx], self.__etabins[etaBinIdx+1])
@@ -216,10 +288,9 @@ class correction_table(Logger):
 
 
             for name in table.name.unique():
-                print(name)
+
                 with BeamerSection( name = name.replace('_','\_') ):
 
-                    """
                     # prepare figures
                     with BeamerSubSection( name = 'Correction plots for each phase space'):
 
@@ -227,9 +298,42 @@ class correction_table(Logger):
 
                             for etaBinIdx in range( len(self.__etabins)-1 ):
 
-                                # NOTE: Make beamer multi figure slide here for each bin
-                                pass
-                    """
+                                current_table = table.loc[ (table.name==name) & (table.et_bin==etBinIdx) & (table.eta_bin==etaBinIdx)]
+
+                                # prepate 2D histograms
+                                info = models[etBinIdx][etaBinIdx]['thresholds'][name]
+                                paths = []
+                                outname = localpath+'/th2_signal_%s_et%d_eta%d'%(name,etBinIdx,etaBinIdx)
+                                output = Plot2DHist( info['th2_signal'], info['slope'], info['offset'], info['x_points'],
+                                            info['y_points'], info['error_points'], outname, xlabel='',
+                                            etBinIdx=etBinIdx, etaBinIdx=etaBinIdx,
+                                            etBins=self.__etbins,etaBins=self.__etabins)
+                                paths.append(output)
+                                outname = localpath+'/th2_background_%s_et%d_eta%d'%(name,etBinIdx,etaBinIdx)
+                                output = Plot2DHist( info['th2_background'], info['slope'], info['offset'], info['x_points'],
+                                            info['y_points'], info['error_points'], outname, xlabel='',
+                                            etBinIdx=etBinIdx, etaBinIdx=etaBinIdx,
+                                            etBins=self.__etbins,etaBins=self.__etabins)
+                                paths.append(output)
+
+                                title = 'Energy between %s in %s (et%d\_eta%d)'%(etbins_str[etBinIdx],
+                                                                                 etabins_str[etaBinIdx],
+                                                                                 etBinIdx,etaBinIdx)
+
+                                BeamerMultiFigureSlide( title = title
+                                , paths = paths
+                                , nDivWidth = 2 # x
+                                , nDivHeight = 1 # y
+                                , texts=None
+                                , fortran = False
+                                , usedHeight = 0.6
+                                , usedWidth = 1.
+                                )
+
+
+
+
+
                     # prepate table
                     with BeamerSubSection( name = 'Efficiency Values' ):
 
@@ -241,20 +345,17 @@ class correction_table(Logger):
                         lines1 += [ HLine(_contextManaged = False) ]
 
                         for etBinIdx in range( len(self.__etbins)-1 ):
-                            
+
                             values_det = []; values_fa = []
                             for etaBinIdx in range( len(self.__etabins)-1 ):
-                                print('aki')
                                 # Get the current bin table
-                                print(table)
-                                print(table.head())
                                 current_table = table.loc[ (table.name==name) & (table.et_bin==etBinIdx) & (table.eta_bin==etaBinIdx)]
                                 det = current_table.signal_corrected_eff.values[0] * 100
                                 fa = current_table.background_corrected_eff.values[0] * 100
 
                                 # Get reference pd
                                 ref = current_table.reference_signal_eff.values[0] * 100
-                                
+
                                 if (det-ref) > 0.0:
                                     values_det.append( ('\\cellcolor[HTML]{9AFF99}%1.2f ($\\uparrow$%1.2f[$\\Delta_{ref}$])')%(det,det-ref) )
                                 elif (det-ref) < 0.0:
@@ -287,8 +388,8 @@ class correction_table(Logger):
                         current_table = table.loc[table.name==name]
 
                         # Get reference values
-                        passed_fa = table.reference_background_passed.sum()
-                        total_fa = table.reference_background_total.sum()
+                        passed_fa = current_table.reference_background_passed.sum()
+                        total_fa = current_table.reference_background_total.sum()
                         fa = passed_fa/total_fa * 100
                         passed_det = current_table.reference_signal_passed.sum()
                         total_det = current_table.reference_signal_total.sum()
@@ -322,7 +423,7 @@ class correction_table(Logger):
 
                         lines2 += [ HLine(_contextManaged = False) ]
                         lines2 += [ HLine(_contextManaged = False) ]
-                        """
+
                         with BeamerSlide( title = "Efficiency Values After Correction"  ):
                             with Table( caption = '$P_{d}$ and $F_{a}$ for all phase space regions.') as _table:
                                 with ResizeBox( size = 1 ) as rb:
@@ -342,7 +443,6 @@ class correction_table(Logger):
                                                 tabular += line
                                             else:
                                                 TableLine(line, rounding = None)
-                            """
 
 
 
@@ -360,38 +460,45 @@ class correction_table(Logger):
         model_etamin_vec = []
         model_etamax_vec = []
         model_paths = []
-
         slopes = []
         offsets = []
 
         # serialize all models
-        for model in models:
+        for etBinIdx in range( len(self.__etbins)-1 ):
+            for etaBinIdx in range( len(self.__etabins)-1 ):
 
-            model_etmin_vec.append( model['etBin'][0] )
-            model_etmax_vec.append( model['etBin'][1] )
-            model_etamin_vec.append( model['etaBin'][0] )
-            model_etamax_vec.append( model['etaBin'][1] )
+                model = models[etBinIdx][etaBinIdx]
 
-            etBinIdx = model['etBinIdx']
-            etaBinIdx = model['etaBinIdx']
+                if model['etBinIdx']!=etBinIdx:
+                    MSG_FATAL(self, 'Model etBinIdx (%d) is different than etBinIdx (%d). Abort.', model['etBinIdx'], etBinIdx)
 
-            model_name = model_output_format%( etBinIdx, etaBinIdx )
-            model_paths.append( model_name )
+                if model['etaBinIdx']!=etaBinIdx:
+                    MSG_FATAL(self, 'Model etaBinIdx (%d) is different than etaBinIdx (%d). Abort.', model['etaBinIdx'], etaBinIdx)
 
-            # Save onnx mode!
-            if to_onnx:
-                import onnx, keras2onnx
-                onnx_model = keras2onnx.convert_keras(model['model'], model['model'].name)
-                onnx.save_model(onnx_model, model_name+'.onnx')
+                model_etmin_vec.append( model['etBin'][0] )
+                model_etmax_vec.append( model['etBin'][1] )
+                model_etamin_vec.append( model['etaBin'][0] )
+                model_etamax_vec.append( model['etaBin'][1] )
+                etBinIdx = model['etBinIdx']
+                etaBinIdx = model['etaBinIdx']
 
-            model_json = model['model'].to_json()
-            with open(model_name+".json", "w") as json_file:
-                json_file.write(model_json)
-                # saving the model weight separately
-                model['model'].save_weights(model_name+".h5")
+                model_name = model_output_format%( etBinIdx, etaBinIdx )
+                model_paths.append( model_name )
+                model_json = model['model'].to_json()
+                with open(model_name+".json", "w") as json_file:
+                    json_file.write(model_json)
+                    # saving the model weight separately
+                    model['model'].save_weights(model_name+".h5")
 
-            slopes.append( model['thresholds'][reference_name]['slope'] )
-            offsets.append( model['thresholds'][reference_name]['offsets'] )
+                if to_onnx:
+                    # NOTE: This is a hack since I am not be able to convert to onnx inside this function. I need to
+                    # open a new python instance (call by system) to convert my models.
+                    command = 'convert2onnx.py -j {FILE}.json -w {FILE}.h5 -o {FILE}.onnx'.format(FILE=model_name)
+                    os.system(command)
+
+
+                slopes.append( model['thresholds'][reference_name]['slope'] )
+                offsets.append( model['thresholds'][reference_name]['offset'] )
 
 
         def list_to_str( l ):
@@ -420,6 +527,7 @@ class correction_table(Logger):
         file.SetValue( "Threshold__slope" , list_to_str(slopes) )
         file.SetValue( "Threshold__offset", list_to_str(offsets) )
         file.SetValue( "Threshold__MaxAverageMu", 100)
+        MSG_INFO( self, "Export all tuning configuration to %s.", conf_output)
         file.WriteFile(conf_output)
 
 
@@ -443,7 +551,7 @@ class correction_table(Logger):
         prevEff = 1. -prevNotDetected
         deltaEff = (eff - prevEff)
         threshold = th1.GetBinCenter(i-1)+(effref-prevEff)/deltaEff*(th1.GetBinCenter(i)-th1.GetBinCenter(i-1))
-        error = 1./math.sqrt(fullArea)
+        error = 1./np.sqrt(fullArea)
         return threshold, error
 
     #
@@ -468,18 +576,19 @@ class correction_table(Logger):
     def fit(self, th2,effref):
         x_points, y_points, error_points = self.get_points(th2, effref )
         import array
-        g = ROOT.TGraphErrors( len(x_points)
+        from ROOT import TGraphErrors, TF1
+        g = TGraphErrors( len(x_points)
                              , array.array('d',y_points,)
                              , array.array('d',x_points)
                              , array.array('d',[0.]*len(x_points))
                              , array.array('d',error_points) )
         firstBinVal = th2.GetYaxis().GetBinLowEdge(th2.GetYaxis().GetFirst())
         lastBinVal = th2.GetYaxis().GetBinLowEdge(th2.GetYaxis().GetLast()+1)
-        f1 = ROOT.TF1('f1','pol1',firstBinVal, lastBinVal)
+        f1 = TF1('f1','pol1',firstBinVal, lastBinVal)
         g.Fit(f1,"FRq")
         slope = f1.GetParameter(1)
         offset = f1.GetParameter(0)
-        return slope, offset
+        return slope, offset, x_points, y_points, error_points
 
 
     #
@@ -511,7 +620,7 @@ class correction_table(Logger):
           if th1_den.GetBinContent(bx+1) != 0 :
               eff = th1_eff.GetBinContent(bx+1)
               try:
-                  error = math.sqrt(eff*(1-eff)/th1_den.GetBinContent(bx+1))
+                  error = np.sqrt(eff*(1-eff)/th1_den.GetBinContent(bx+1))
               except:
                   error=0
               th1_eff.SetBinError(bx+1,eff)
@@ -523,9 +632,9 @@ class correction_table(Logger):
 
 
 
-
-
-
+#
+# Quick test to dev.
+#
 if __name__ == "__main__":
 
     from saphyra.utils import crossval_table
@@ -541,24 +650,24 @@ if __name__ == "__main__":
                   op+'_pd_op'     : "reference/"+op+"_cutbased/pd_op#0",
                   op+'_fa_op'     : "reference/"+op+"_cutbased/fa_op#0",
                   op+'_sp_op'     : "reference/"+op+"_cutbased/sp_op",
-                
+
                   # Counts
                   op+'_pd_ref_passed'    : "reference/"+op+"_cutbased/pd_ref#1",
                   op+'_fa_ref_passed'    : "reference/"+op+"_cutbased/fa_ref#1",
                   op+'_pd_ref_total'     : "reference/"+op+"_cutbased/pd_ref#2",
-                  op+'_fa_ref_total'     : "reference/"+op+"_cutbased/fa_ref#2",   
+                  op+'_fa_ref_total'     : "reference/"+op+"_cutbased/fa_ref#2",
                   op+'_pd_val_passed'    : "reference/"+op+"_cutbased/pd_val#1",
                   op+'_fa_val_passed'    : "reference/"+op+"_cutbased/fa_val#1",
                   op+'_pd_val_total'     : "reference/"+op+"_cutbased/pd_val#2",
-                  op+'_fa_val_total'     : "reference/"+op+"_cutbased/fa_val#2",  
+                  op+'_fa_val_total'     : "reference/"+op+"_cutbased/fa_val#2",
                   op+'_pd_op_passed'     : "reference/"+op+"_cutbased/pd_op#1",
                   op+'_fa_op_passed'     : "reference/"+op+"_cutbased/fa_op#1",
                   op+'_pd_op_total'      : "reference/"+op+"_cutbased/pd_op#2",
                   op+'_fa_op_total'      : "reference/"+op+"_cutbased/fa_op#2",
-        } 
+        }
         return d
-    
-    
+
+
     tuned_info = collections.OrderedDict( {
                   # validation
                   "max_sp_val"      : 'summary/max_sp_val',
@@ -569,17 +678,18 @@ if __name__ == "__main__":
                   "max_sp_pd_op"    : 'summary/max_sp_pd_op#0',
                   "max_sp_fa_op"    : 'summary/max_sp_fa_op#0',
                   } )
-    
+
     tuned_info.update(create_op_dict('tight'))
     tuned_info.update(create_op_dict('medium'))
     tuned_info.update(create_op_dict('loose'))
     tuned_info.update(create_op_dict('vloose'))
-    
-    
+
+
     etbins = [15,20,30,40,50,100000]
     etabins = [0, 0.8 , 1.37, 1.54, 2.37, 2.5]
 
     cv  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
+    #cv.fill( '/Volumes/castor/tuning_data/Zee/v10/*.r2/*/*.gz', 'v10')
     #cv.fill( '/home/jodafons/public/tunings/v10/*.r2/*/*.gz', 'v10')
     #cv.to_csv( 'v10.csv' )
     cv.from_csv( 'v10.csv' )
@@ -589,7 +699,7 @@ if __name__ == "__main__":
     best_models = cv.get_best_models(best_sorts, remove_last=True)
 
 
-    
+
     #
     # Generator to read, prepare data and get all references
     #
@@ -613,7 +723,7 @@ if __name__ == "__main__":
             signal_passed = sum(answers[target==1])
             signal_total = len(answers[target==1])
             background_passed = sum(answers[target==0])
-            background_total = sum(answers[target==0])
+            background_total = len(answers[target==0])
             pd = signal_passed/signal_total
             fa = background_passed/background_total
             ref_dict[ref] = {'signal_passed': signal_passed, 'signal_total': signal_total, 'pd' : pd,
@@ -622,23 +732,39 @@ if __name__ == "__main__":
         return data, target, avgmu, ref_dict
 
 
-    
-    path = '~/public/cern_data/files/Zee/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97_et{ET}_eta{ETA}.npz'
 
+    path = '/Volumes/castor/cern_data/files/Zee/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97_et{ET}_eta{ETA}.npz'
+    ref_path = '/Volumes/castor/cern_data/files/Zee/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97/references/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97_et{ET}_eta{ETA}.ref.pic.gz'
+
+    #path = '~/public/cern_data/files/Zee/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97/data17_13TeV.AllPeriods.sgn.probes_lhmedium_EGAM1.bkg.VProbes_EGAM7.GRL_v97_et{ET}_eta{ETA}.npz'
     paths = [[ path.format(ET=et,ETA=eta) for eta in range(5)] for et in range(5)]
+    ref_paths = [[ ref_path.format(ET=et,ETA=eta) for eta in range(5)] for et in range(5)]
+    ref_matrix = [[ {} for eta in range(5)] for et in range(5)]
+    references = ['T0HLTElectronT2CaloTight','T0HLTElectronT2CaloMedium','T0HLTElectronT2CaloLoose','T0HLTElectronT2CaloVLoose']
+    references = ['tight_cutbased', 'medium_cutbased' , 'loose_cutbased', 'vloose_cutbased']
+    from saphyra.core import ReferenceReader
+    for et_bin in range(5):
+        for eta_bin in range(5):
+            for name in references:
+                refObj = ReferenceReader().load(ref_paths[et_bin][eta_bin])
+                pd = refObj.getSgnPassed(name)/refObj.getSgnTotal(name)
+                fa = refObj.getBkgPassed(name)/refObj.getBkgTotal(name)
+                ref_matrix[et_bin][eta_bin][name] = {'pd':pd, 'fa':fa}
+
+
+
 
     # get best models
-    etbins = [15,20]
+    etbins = [15,20, 30]
     etabins = [0, 0.8]
-    ct  = correction_table( generator, etbins , etabins, 0.02, 0.5, 16, 70 )
-    ct.fill(paths, best_models)
+    ct  = correction_table( generator, etbins , etabins, 0.02, 0.5, 16, 60 )
+    ct.fill(paths, best_models, ref_matrix)
 
 
     table = ct.table()
-    ct.dump_beamer_table(table, 'test', 'test')
-    
+    #ct.dump_beamer_table(table, best_models, 'test', 'test','test_dir')
 
-
+    ct.export(best_models, 'model_et%d_eta%d', 'config_tight.conf', 'tight_cutbased', to_onnx=True)
 
 
 

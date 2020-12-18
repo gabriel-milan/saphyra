@@ -541,9 +541,9 @@ class crossval_table( Logger ):
                 tuned = load(best.file_name.values[0])['tunedData'][best.model_idx.values[0]]
                 model = model_from_json( json.dumps(tuned['sequence'], separators=(',', ':')) ) #custom_objects={'RpLayer':RpLayer} )
                 model.set_weights( tuned['weights'] )
-                new_model = Model(model.inputs, model.layers[-2].output) if remove_last else model
+                #new_model = Model(model.inputs, model.layers[-2].output) if remove_last else model
                 #new_model.summary() 
-                d_tuned['model']    = new_model
+                d_tuned['model']    = model
                 d_tuned['etBin']    = [self.__etbins[et_bin], self.__etbins[et_bin+1]]
                 d_tuned['etaBin']   = [self.__etabins[eta_bin], self.__etabins[eta_bin+1]]
                 d_tuned['etBinIdx'] = et_bin
@@ -551,85 +551,6 @@ class crossval_table( Logger ):
                 d_tuned['history']  = tuned['history']
                 models[et_bin][eta_bin] = d_tuned
         return models
-
-
-
-    def export( self, models, model_output_format , output, to_onnx=False):
-    
-
-        from ROOT import TEnv
-        
-        model_etmin_vec = []
-        model_etmax_vec = []
-        model_etamin_vec = []
-        model_etamax_vec = []
-        model_paths = []
-        
-        slopes = []
-        offsets = []
-        
-        # serialize all models
-        for model in models:
-        
-            model_etmin_vec.append( model['etBin'][0] )
-            model_etmax_vec.append( model['etBin'][1] )
-            model_etamin_vec.append( model['etaBin'][0] )
-            model_etamax_vec.append( model['etaBin'][1] )
-        
-            etBinIdx = model['etBinIdx']
-            etaBinIdx = model['etaBinIdx']
-        
-            # Conver keras to Onnx
-            #model['model'].summary()
-
-        
-            model_name = model_output_format%( etBinIdx, etaBinIdx )
-            model_paths.append( model_name )
-        
-            # Save onnx mode!
-            if to_onnx:
-                import onnx, keras2onnx
-                onnx_model = keras2onnx.convert_keras(model['model'], model['model'].name)
-                onnx.save_model(onnx_model, model_name+'.onnx')
-            
-
-            model_json = model['model'].to_json()
-            with open(model_name+".json", "w") as json_file:
-                json_file.write(model_json)
-                # saving the model weight separately
-                model['model'].save_weights(model_name+".h5")
-            
-            slopes.append( 0.0 )
-            offsets.append( 0.0 )
-        
-        
-        def list_to_str( l ):
-            s = str()
-            for ll in l:
-              s+=str(ll)+'; '
-            return s[:-2]
-        
-        # Write the config file
-        file = TEnv( 'ringer' )
-        file.SetValue( "__name__", 'should_be_filled' )
-        file.SetValue( "__version__", 'should_be_filled' )
-        file.SetValue( "__operation__", 'should_be_filled' )
-        file.SetValue( "__signature__", 'should_be_filled' )
-        file.SetValue( "Model__size"  , str(len(models)) )
-        file.SetValue( "Model__etmin" , list_to_str(model_etmin_vec) )
-        file.SetValue( "Model__etmax" , list_to_str(model_etmax_vec) )
-        file.SetValue( "Model__etamin", list_to_str(model_etamin_vec) )
-        file.SetValue( "Model__etamax", list_to_str(model_etamax_vec) )
-        file.SetValue( "Model__path"  , list_to_str( model_paths ) )
-        file.SetValue( "Threshold__size"  , str(len(models)) )
-        file.SetValue( "Threshold__etmin" , list_to_str(model_etmin_vec) )
-        file.SetValue( "Threshold__etmax" , list_to_str(model_etmax_vec) )
-        file.SetValue( "Threshold__etamin", list_to_str(model_etamin_vec) )
-        file.SetValue( "Threshold__etamax", list_to_str(model_etamax_vec) )
-        file.SetValue( "Threshold__slope" , list_to_str(slopes) )
-        file.SetValue( "Threshold__offset", list_to_str(offsets) )
-        file.SetValue( "Threshold__MaxAverageMu", 100)
-        file.WriteFile(output)
 
 
 
