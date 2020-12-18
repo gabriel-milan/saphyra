@@ -140,7 +140,7 @@ class correction_table(Logger):
             for eta_bin in range(len(self.__etabins)-1):
 
                 path = data_paths[et_bin][eta_bin]
-                data, target, avgmu, _ = self.__generator(path)
+                data, target, avgmu = self.__generator(path)
                 references = reference_values[et_bin][eta_bin]
 
                 model = models[et_bin][eta_bin]
@@ -453,7 +453,7 @@ class correction_table(Logger):
     def export( self, models, model_output_format , conf_output, reference_name, to_onnx=False):
 
         from ROOT import TEnv
-        
+
         model_etmin_vec = []
         model_etmax_vec = []
         model_etamin_vec = []
