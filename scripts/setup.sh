@@ -2,7 +2,7 @@
 
 echo "setup saphyra..."
 export PYTHONPATH=`pwd`:$PYTHONPATH
-export PATH=`pwd`:$PATH
+export PATH=`pwd`/scripts:$PATH
 
 
 

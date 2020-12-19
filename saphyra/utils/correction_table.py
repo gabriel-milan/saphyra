@@ -11,14 +11,16 @@ from Gaugi.tex import *
 from Gaugi.monet.AtlasStyle import *
 from Gaugi.monet.PlotFunctions import *
 from Gaugi.monet.TAxisFunctions import *
-
+from Gaugi import progressbar
 
 from copy import copy
+from itertools import product
 import numpy as np
 import pandas
 import time
 import collections
 import os
+
 
 from ROOT import gROOT, kTRUE
 gROOT.SetBatch(kTRUE)
@@ -146,107 +148,106 @@ class correction_table(Logger):
 
 
         # Loop over all et/eta bins
-        for et_bin in range(len(self.__etbins)-1):
-            for eta_bin in range(len(self.__etabins)-1):
+        for et_bin, eta_bin in progressbar(product(range(len(self.__etbins)-1),range(len(self.__etabins)-1)),
+                                           (len(self.__etbins)-1)*(len(self.__etabins)-1), prefix = "Fitting... " ):
+            path = data_paths[et_bin][eta_bin]
+            data, target, avgmu = self.__generator(path)
+            references = reference_values[et_bin][eta_bin]
 
-                path = data_paths[et_bin][eta_bin]
-                data, target, avgmu = self.__generator(path)
-                references = reference_values[et_bin][eta_bin]
+            model = models[et_bin][eta_bin]
+            model['thresholds'] = {}
 
-                model = models[et_bin][eta_bin]
-                model['thresholds'] = {}
+            # Get the predictions
+            outputs = model['model'].predict(data, batch_size=1024, verbose=verbose).flatten()
 
-                # Get the predictions
-                outputs = model['model'].predict(data, batch_size=1024, verbose=verbose).flatten()
+            # Get all limits using the output
+            xmin = int(np.percentile(outputs , self.__xmin_percentage))
+            xmax = int(np.percentile(outputs, self.__xmax_percentage))
 
-                # Get all limits using the output
-                xmin = int(np.percentile(outputs , self.__xmin_percentage))
-                xmax = int(np.percentile(outputs, self.__xmax_percentage))
+            MSG_DEBUG(self, 'Setting xmin to %1.2f and xmax to %1.2f', xmin, xmax)
+            xbins = int((xmax-xmin)/self.__x_bin_size)
+            ybins = int((self.__ymax-self.__ymin)/self.__y_bin_size)
 
-                MSG_DEBUG(self, 'Setting xmin to %1.2f and xmax to %1.2f', xmin, xmax)
-                xbins = int((xmax-xmin)/self.__x_bin_size)
-                ybins = int((self.__ymax-self.__ymin)/self.__y_bin_size)
+            # Fill 2D histograms
+            from ROOT import TH2F
+            import array
+            th2_signal = TH2F( 'th2_signal_et%d_eta%d'%(et_bin,eta_bin), '', xbins, xmin, xmax, ybins, self.__ymin, self.__ymax )
+            w = array.array( 'd', np.ones_like( outputs[target==1] ) )
+            th2_signal.FillN( len(outputs[target==1]), array.array('d',  outputs[target==1].tolist()),  array.array('d',avgmu[target==1].tolist()), w)
+            th2_background = TH2F( 'th2_background_et%d_eta%d'%(et_bin,eta_bin), '', xbins,xmin, xmax, ybins, self.__ymin, self.__ymax )
+            w = array.array( 'd', np.ones_like( outputs[target==0] ) )
+            th2_background.FillN( len(outputs[target==0]), array.array('d',outputs[target!=1].tolist()), array.array('d',avgmu[target!=1].tolist()), w)
 
-                # Fill 2D histograms
-                from ROOT import TH2F
-                import array
-                th2_signal = TH2F( 'th2_signal_et%d_eta%d'%(et_bin,eta_bin), '', xbins, xmin, xmax, ybins, self.__ymin, self.__ymax )
-                w = array.array( 'd', np.ones_like( outputs[target==1] ) )
-                th2_signal.FillN( len(outputs[target==1]), array.array('d',  outputs[target==1].tolist()),  array.array('d',avgmu[target==1].tolist()), w)
-                th2_background = TH2F( 'th2_background_et%d_eta%d'%(et_bin,eta_bin), '', xbins,xmin, xmax, ybins, self.__ymin, self.__ymax )
-                w = array.array( 'd', np.ones_like( outputs[target==0] ) )
-                th2_background.FillN( len(outputs[target==0]), array.array('d',outputs[target!=1].tolist()), array.array('d',avgmu[target!=1].tolist()), w)
+            MSG_DEBUG( self, 'Applying linear correction to et%d_eta%d bin.', et_bin, eta_bin)
 
-                MSG_DEBUG( self, 'Applying linear correction to et%d_eta%d bin.', et_bin, eta_bin)
+            for name, ref in references.items():
 
-                for name, ref in references.items():
+                false_alarm = 1.0
+                while false_alarm > self.__false_alarm_limit:
 
-                    false_alarm = 1.0
-                    while false_alarm > self.__false_alarm_limit:
+                    # Get the threshold when we not apply any linear correction
+                    threshold, _ = self.find_threshold( th2_signal.ProjectionX(), ref['pd'] )
 
-                        # Get the threshold when we not apply any linear correction
-                        threshold, _ = self.find_threshold( th2_signal.ProjectionX(), ref['pd'] )
+                    # Get the efficiency without linear adjustment
+                    #signal_eff, signal_num, signal_den = self.calculate_num_and_den_from_hist(th2_signal, 0.0, threshold)
+                    signal_eff, signal_num, signal_den = self.calculate_num_and_den_from_output(outputs[target==1], avgmu[target==1], 0.0, threshold)
+                    #background_eff, background_num, background_den = self.calculate_num_and_den_from_hist(th2_background, 0.0, threshold)
+                    background_eff, background_num, background_den = self.calculate_num_and_den_from_output(outputs[target!=1], avgmu[target!=1], 0.0, threshold)
 
-                        # Get the efficiency without linear adjustment
-                        #signal_eff, signal_num, signal_den = self.calculate_num_and_den_from_hist(th2_signal, 0.0, threshold)
-                        signal_eff, signal_num, signal_den = self.calculate_num_and_den_from_output(outputs[target==1], avgmu[target==1], 0.0, threshold)
-                        #background_eff, background_num, background_den = self.calculate_num_and_den_from_hist(th2_background, 0.0, threshold)
-                        background_eff, background_num, background_den = self.calculate_num_and_den_from_output(outputs[target!=1], avgmu[target!=1], 0.0, threshold)
+                    # Apply the linear adjustment and fix it in case of positive slope
+                    slope, offset, x_points, y_points, error_points = self.fit( th2_signal, ref['pd'] )
+                    slope = 0 if slope>0 else slope
+                    offset = threshold if slope>0 else offset
+                    if slope>0:
+                      MSG_WARNING(self, "Retrieved positive angular factor of the linear correction, setting to 0!")
 
-                        # Apply the linear adjustment and fix it in case of positive slope
-                        slope, offset, x_points, y_points, error_points = self.fit( th2_signal, ref['pd'] )
-                        slope = 0 if slope>0 else slope
-                        offset = threshold if slope>0 else offset
-                        if slope>0:
-                          MSG_WARNING(self, "Retrieved positive angular factor of the linear correction, setting to 0!")
+                    # Get the efficiency with linear adjustment
+                    #signal_corrected_eff, signal_corrected_num, signal_corrected_den = self.calculate_num_and_den_from_hist(th2_signal, slope, offset)
+                    signal_corrected_eff, signal_corrected_num, signal_corrected_den = self.calculate_num_and_den_from_output(outputs[target==1], \
+                                                                                                                              avgmu[target==1], slope, offset)
+                    #background_corrected_eff, background_corrected_num, background_corrected_den = self.calculate_num_and_den_from_hits(th2_background, slope, offset)
+                    background_corrected_eff, background_corrected_num, background_corrected_den = self.calculate_num_and_den_from_output(outputs[target!=1], \
+                                                                                                                                          avgmu[target!=1], slope, offset)
 
-                        # Get the efficiency with linear adjustment
-                        #signal_corrected_eff, signal_corrected_num, signal_corrected_den = self.calculate_num_and_den_from_hist(th2_signal, slope, offset)
-                        signal_corrected_eff, signal_corrected_num, signal_corrected_den = self.calculate_num_and_den_from_output(outputs[target==1], \
-                                                                                                                                  avgmu[target==1], slope, offset)
-                        #background_corrected_eff, background_corrected_num, background_corrected_den = self.calculate_num_and_den_from_hits(th2_background, slope, offset)
-                        background_corrected_eff, background_corrected_num, background_corrected_den = self.calculate_num_and_den_from_output(outputs[target!=1], \
-                                                                                                                                              avgmu[target!=1], slope, offset)
+                    false_alarm = background_corrected_num/background_corrected_den # get the passed/total
 
-                        false_alarm = background_corrected_num/background_corrected_den # get the passed/total
+                    if false_alarm > self.__false_alarm_limit:
+                        # Reduce the reference value by hand
+                        value-=0.0025
 
-                        if false_alarm > self.__false_alarm_limit:
-                            # Reduce the reference value by hand
-                            value-=0.0025
+                MSG_DEBUG( self, 'Reference name: %s, target: %1.2f%%', name, ref['pd']*100 )
+                MSG_DEBUG( self, 'Signal with correction is: %1.2f%%', signal_corrected_num/signal_corrected_den * 100 )
+                MSG_DEBUG( self, 'Background with correction is: %1.2f%%', background_corrected_num/background_corrected_den * 100 )
 
-                    MSG_DEBUG( self, 'Reference name: %s, target: %1.2f%%', name, ref['pd']*100 )
-                    MSG_DEBUG( self, 'Signal with correction is: %1.2f%%', signal_corrected_num/signal_corrected_den * 100 )
-                    MSG_DEBUG( self, 'Background with correction is: %1.2f%%', background_corrected_num/background_corrected_den * 100 )
+                # decore the model array
+                model['thresholds'][name] = {'offset':offset, 'slope':slope, 'threshold' : threshold, 'th2_signal':th2_signal, 'th2_background':th2_background,
+																						 'x_points':x_points, 'y_points':y_points, 'error_points':error_points, 'reference_pd': ref['pd'], 'reference_fa':ref['fa']}
 
-                    # decore the model array
-                    model['thresholds'][name] = {'offset':offset, 'slope':slope, 'threshold' : threshold, 'th2_signal':th2_signal, 'th2_background':th2_background,
-																								 'x_points':x_points, 'y_points':y_points, 'error_points':error_points, 'reference_pd': ref['pd'], 'reference_fa':ref['fa']}
-
-                    # et/eta bin information
-                    add( 'name'                        , name )
-                    add( 'et_bin'                      , et_bin  )
-                    add( 'eta_bin'                     , eta_bin )
-                    # reference values
-                    add( 'reference_signal_passed'     , int(ref['pd']*signal_den) )
-                    add( 'reference_signal_total'      , signal_den )
-                    add( 'reference_signal_eff'        , ref['pd'] )
-                    add( 'reference_background_passed' , int(ref['fa']*background_den) )
-                    add( 'reference_background_total'  , background_den )
-                    add( 'reference_background_eff'    , ref['fa'] )
-                    # non-corrected values
-                    add( 'signal_passed'               , signal_num )
-                    add( 'signal_total'                , signal_den )
-                    add( 'signal_eff'                  , signal_num/signal_den )
-                    add( 'background_passed'           , background_num )
-                    add( 'background_total'            , background_den )
-                    add( 'background_eff'              , background_num/background_den )
-                    # corrected values
-                    add( 'signal_corrected_passed'     , signal_corrected_num )
-                    add( 'signal_corrected_total'      , signal_corrected_den )
-                    add( 'signal_corrected_eff'        , signal_corrected_num/signal_corrected_den )
-                    add( 'background_corrected_passed' , background_corrected_num )
-                    add( 'background_corrected_total'  , background_corrected_den )
-                    add( 'background_corrected_eff'    , background_corrected_num/background_corrected_den )
+                # et/eta bin information
+                add( 'name'                        , name )
+                add( 'et_bin'                      , et_bin  )
+                add( 'eta_bin'                     , eta_bin )
+                # reference values
+                add( 'reference_signal_passed'     , int(ref['pd']*signal_den) )
+                add( 'reference_signal_total'      , signal_den )
+                add( 'reference_signal_eff'        , ref['pd'] )
+                add( 'reference_background_passed' , int(ref['fa']*background_den) )
+                add( 'reference_background_total'  , background_den )
+                add( 'reference_background_eff'    , ref['fa'] )
+                # non-corrected values
+                add( 'signal_passed'               , signal_num )
+                add( 'signal_total'                , signal_den )
+                add( 'signal_eff'                  , signal_num/signal_den )
+                add( 'background_passed'           , background_num )
+                add( 'background_total'            , background_den )
+                add( 'background_eff'              , background_num/background_den )
+                # corrected values
+                add( 'signal_corrected_passed'     , signal_corrected_num )
+                add( 'signal_corrected_total'      , signal_corrected_den )
+                add( 'signal_corrected_eff'        , signal_corrected_num/signal_corrected_den )
+                add( 'background_corrected_passed' , background_corrected_num )
+                add( 'background_corrected_total'  , background_corrected_den )
+                add( 'background_corrected_eff'    , background_corrected_num/background_corrected_den )
 
         # convert to pandas dataframe
         self.__table = pandas.DataFrame( dataframe )
@@ -314,13 +315,13 @@ class correction_table(Logger):
                                 paths = []
                                 outname = localpath+'/th2_signal_%s_et%d_eta%d'%(name,etBinIdx,etaBinIdx)
                                 output = Plot2DHist( info['th2_signal'], info['slope'], info['offset'], info['x_points'],
-                                            info['y_points'], info['error_points'], outname, xlabel='',
+                                            info['y_points'], info['error_points'], outname, xlabel='<#mu>',
                                             etBinIdx=etBinIdx, etaBinIdx=etaBinIdx,
                                             etBins=self.__etbins,etaBins=self.__etabins)
                                 paths.append(output)
                                 outname = localpath+'/th2_background_%s_et%d_eta%d'%(name,etBinIdx,etaBinIdx)
                                 output = Plot2DHist( info['th2_background'], info['slope'], info['offset'], info['x_points'],
-                                            info['y_points'], info['error_points'], outname, xlabel='',
+                                            info['y_points'], info['error_points'], outname, xlabel='<#mu>',
                                             etBinIdx=etBinIdx, etaBinIdx=etaBinIdx,
                                             etBins=self.__etbins,etaBins=self.__etabins)
                                 paths.append(output)
@@ -643,8 +644,6 @@ class correction_table(Logger):
     def calculate_num_and_den_from_output(self, output, avgmu, slope, offset) :
       thr = avgmu*slope + offset
       denominator = len(output)
-      print(thr)
-      print(output)
       numerator = sum( output>thr  )
       return denominator/numerator, numerator, denominator
 
@@ -708,9 +707,9 @@ if __name__ == "__main__":
     etabins = [0, 0.8 , 1.37, 1.54, 2.37, 2.5]
 
     cv  = crossval_table( tuned_info, etbins = etbins , etabins = etabins )
-    cv.fill( '/Volumes/castor/tuning_data/Zee/v10/*.r2/*/*.gz', 'v10')
+    #cv.fill( '/Volumes/castor/tuning_data/Zee/v10/*.r2/*/*.gz', 'v10')
     #cv.fill( '/home/jodafons/public/tunings/v10/*.r2/*/*.gz', 'v10')
-    cv.to_csv( 'v10.csv' )
+    #cv.to_csv( 'v10.csv' )
     cv.from_csv( 'v10.csv' )
     best_inits = cv.filter_inits("max_sp_val")
     best_inits = best_inits.loc[(best_inits.model_idx==0)]
