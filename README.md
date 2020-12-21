@@ -17,6 +17,8 @@ Saphyra is a package used to derive all ringer models in large scale using HPC c
 
 ## Installation:
 
+Please follow these instructions below to install the saphyra package into your system.
+
 ### Installing from pip:
 
 ```bash
