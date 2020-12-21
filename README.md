@@ -1,7 +1,5 @@
 
 
-
-[![Build Status](https://travis-ci.org/jodafons/saphyra.svg?branch=master)](https://travis-ci.org/github/jodafons/saphyra)
 [![PyPI Version](https://img.shields.io/pypi/v/saphyra)](https://pypi.org/project/saphyra/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/saphyra)](https://github.com/jodafons/saphyra)
 
@@ -33,10 +31,15 @@ Clone this repository:
 git clone https://github.com/jodafons/saphyra
 ```
 And install it!
-
 ```bash
-cd saphyra && easy_install --user .
+cd saphyra && source scripts/setup.sh
 ```
+
+## Build status:
+
+|  Branch    | Build Status |
+| ---------- | ------------ |
+|   Master   |[![Build Status](https://travis-ci.org/jodafons/saphyra.svg?branch=master)](https://travis-ci.org/github/jodafons/saphyra)|
 
 ## Notes about ringer project:
 
