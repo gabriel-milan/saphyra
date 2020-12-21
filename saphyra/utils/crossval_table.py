@@ -114,15 +114,28 @@ class crossval_table( Logger ):
     # Convert the table to csv
     #
     def to_csv( self, output ):
-      self.__table.to_csv(output)
+        self.__table.to_csv(output)
 
 
     #
     # Read the table from csv
     #
     def from_csv( self, input ):
-      self.__table = pd.read_csv(input)
+        self.__table = pd.read_csv(input)
 
+
+    #
+    # Get the main table
+    #
+    def table(self):
+        return self.__table
+
+
+    #
+    # Set the main table
+    #
+    def set_table(self, table):
+        self.__table=table
 
 
     #
@@ -415,7 +428,6 @@ class crossval_table( Logger ):
                         cv_values=[]; ref_values=[]
                         for etBinIdx in range(len(self.__etbins) - 1):
                             current_table = cv_table.loc[ (cv_table.train_tag==tag) & (cv_table.et_bin==etBinIdx) & (cv_table.eta_bin==etaBinIdx) ]
-                            print(current_table.head())
                             sp = current_table[operation_point+'_sp_val_mean'].values[0]*100
                             pd = current_table[operation_point+'_pd_val_mean'].values[0]*100
                             fa = current_table[operation_point+'_fa_val_mean'].values[0]*100
