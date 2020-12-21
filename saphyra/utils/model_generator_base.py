@@ -1,4 +1,3 @@
-
 __all__ = ["model_generator_base"]
 
 import tensorflow as tf
@@ -37,7 +36,7 @@ class model_generator_base( Logger ):
     for layer in from_model.layers:
       if layer.name == from_layer:
         source_layer = layer
-    
+
     if not source_layer:
       MSG_FATAL( self, "From model with layer %s does not exist.", from_layer)
 
@@ -69,18 +68,15 @@ class model_generator_base( Logger ):
     # Loop over all tuned files
     for tuned in tuned_list:
       history = tuned['history']
-      if tuned['sort']==sort and best_sp < history['summary']['max_sp_op'] and tuned['imodel']==imodel: 
-        # read the model 
+      if tuned['sort']==sort and best_sp < history['summary']['max_sp_op'] and tuned['imodel']==imodel:
+        # read the model
         best_model = model_from_json( json.dumps(tuned['sequence'], separators=(',', ':')) )
         best_model.set_weights( tuned['weights'] )
         best_model = Model(best_model.inputs, best_model.layers[-1].output)
         best_sp =history['summary']['max_sp_op']
 
     return best_model
-    
 
 
 
 
-
- 
