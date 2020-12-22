@@ -7,7 +7,7 @@
 
 We should include some description here.
 
-**NOTE** This repository make part of the ringer derivation kit (rtk).
+**NOTE** This repository make part of the ringer tuning kit (rtk).
 
 ## What is it for?
 
