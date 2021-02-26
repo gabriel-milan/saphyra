@@ -14,7 +14,7 @@ from datetime import datetime
 from copy import deepcopy
 import numpy as np
 import time
-
+import os
 
 def lock_as_completed_job(output):
   with open(output+'/.complete','w') as f:
@@ -95,6 +95,7 @@ class BinaryClassificationJob( Logger ):
     self.__trained_models = []
 
 
+
   #
   # Sorts setter and getter
   #
@@ -130,6 +131,7 @@ class BinaryClassificationJob( Logger ):
   # run job
   #
   def run( self ):
+
 
 
     for isort, sort in enumerate( self.sorts ):
@@ -210,6 +212,14 @@ class BinaryClassificationJob( Logger ):
             class_weights = {cl : weights[idx] for idx, cl in enumerate(classes)}
           else:
             class_weights = None
+
+         
+          # Hacn: used by orchestra to set this job as local test
+          if os.getenv('LOCAL_TEST'): 
+            MSG_INFO(self, "The LOCAL_TEST environ was detected." )
+            MSG_INFO(self, "This is a short local test, lets skip the fitting for now. ")
+            return StatusCode.SUCCESS
+
 
           # Training
           history = model_for_this_init.fit(x_train, y_train,
