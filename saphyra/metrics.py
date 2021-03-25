@@ -13,8 +13,7 @@ __all__ = [
 
 ]
 
-import numpy as np
-from tensorflow.keras.metrics import AUC, categorical_accuracy, Metric
+from tensorflow.keras.metrics import AUC
 from tensorflow.keras import backend as K
 import tensorflow as tf
 tf.executing_eagerly()
