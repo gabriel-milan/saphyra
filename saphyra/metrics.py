@@ -39,6 +39,10 @@ class categorical_sp(AUC):
             del kwargs["multi_label"]
         super().__init__(multi_label=True, *args, **kwargs)
 
+    def _build(self, shape):
+        super()._build(shape)
+        self._num_labels_var = K.variable(value=self._num_labels)
+
     def result(self):
         fa: tf.Tensor = self.false_positives / \
             (self.true_negatives + self.false_positives + K.epsilon())
@@ -47,7 +51,7 @@ class categorical_sp(AUC):
         sp: tf.Tensor = tf.norm(
             K.sqrt(K.sqrt(pd*(1-fa)) * (0.5*(pd+(1-fa)))), axis=1)
         knee = K.argmax(sp)
-        return sp[knee]
+        return sp[knee] / K.sqrt(self._num_labels_var)
 
 
 class sp(AUC):
