@@ -27,3 +27,4 @@ build
 .__python__
 
 venv/
+.vscode/
