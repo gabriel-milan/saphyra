@@ -18,15 +18,13 @@ setuptools.setup(
               'online', 'machine learning', 'deep learning'],
     install_requires=[
         # 'tensorflow', # this cause an missmatch into the tensorflow docker image. We will install manually in case of not found.
-        'keras',
-        'numpy>=1.18.1',
-        'six>=1.12.0',
-        'scipy>=1.4.1',
-        'future',
-        'sklearn',
-        'Gaugi>=1.0.13',
-        'pandas',
-        'matplotlib',
+        "Gaugi>=1.0.13",
+        "keras2onnx>=1.7.0",
+        "matplotlib>=3.4.0",
+        "numpy>=1.18.1",
+        "onnx>=1.8.1",
+        "pandas>=1.2.3",
+        "scikit_learn>=0.24.1",
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
