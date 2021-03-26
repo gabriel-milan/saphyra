@@ -65,5 +65,5 @@ jobs:
       - name: Publish latest on PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: ${{ secrets.PYPI_TOKEN_USER }}
-          password: ${{ secrets.PYPI_TOKEN_PASSWORD }}
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}

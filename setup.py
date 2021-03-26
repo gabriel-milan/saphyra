@@ -13,7 +13,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     author='João Victor da Fonseca Pinto',
     author_email='jodafons@lps.ufrj.br',
-    url='https://github.com/jodafons/saphyra',
+    url='https://github.com/ringer-atlas/saphyra',
     keywords=['framework', 'flexibility', 'python',
               'online', 'machine learning', 'deep learning'],
     install_requires=[
@@ -32,7 +32,7 @@ setuptools.setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
 )
